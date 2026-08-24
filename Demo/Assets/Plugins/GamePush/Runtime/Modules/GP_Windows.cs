@@ -33,7 +33,8 @@ namespace GamePush
             string description,
             string textConfirm,
             string textCancel,
-            string invertButtonColors
+            string invertButtonColors,
+            string hideCancelButton
             );
 
         public static void ShowConfirm(Action<bool> confirmCallback = null)
@@ -57,7 +58,8 @@ namespace GamePush
                 data.description, 
                 data.textConfirm, 
                 data.textCancel, 
-                data.invertButtonColors.ToString());
+                data.invertButtonColors.ToString(),
+                data.hideCancelButton.ToString());
 #else
             ConsoleLog("ShowConfirm called");
             _onConfirm?.Invoke(true);
@@ -74,19 +76,22 @@ namespace GamePush
         public string textConfirm = "Confirm";
         public string textCancel = "Cancel";
         public bool invertButtonColors = false;
+        public bool hideCancelButton = false;
 
         public ConfirmWindowData(
             string title = "", 
             string description = "", 
             string textConfirm = "", 
             string textCancel = "",
-            bool invertButtonColors = false)
+            bool invertButtonColors = false,
+            bool hideCancelButton = false)
         {
             this.title = title;
             this.description = description;
             this.textConfirm = textConfirm;
             this.textCancel = textCancel;
             this.invertButtonColors = invertButtonColors;
+            this.hideCancelButton = hideCancelButton;
         }
     }
     

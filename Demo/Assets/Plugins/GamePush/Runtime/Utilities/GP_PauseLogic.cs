@@ -9,6 +9,17 @@ namespace GamePush
         private static bool _tempMute;
         private static bool _gamePause;
         private static bool _adPause;
+        private static bool _cooperativeSessionActive;
+
+        /// <summary>
+        /// A multiplayer host must keep its authoritative clock alive when the page loses
+        /// focus. Audio still follows the platform pause state, but Time.timeScale stays at 1.
+        /// </summary>
+        public static void SetCooperativeSessionActive(bool active)
+        {
+            _cooperativeSessionActive = active;
+            ApplySimulationPause();
+        }
     
         private void OnEnable()
         {
@@ -36,6 +47,9 @@ namespace GamePush
     
         void OnApplicationFocus(bool hasFocus)
         {
+            // Headless Unity test runs never receive focus. Pausing their time scale here
+            // deadlocks any PlayMode test that waits for a physics frame.
+            if (Application.isBatchMode) return;
             if (hasFocus)
                 UnpauseGame();
             else
@@ -51,7 +65,7 @@ namespace GamePush
     
             _tempMute = AudioListener.pause;
             MusicOff();
-            Time.timeScale = 0f;
+            ApplySimulationPause();
         }
     
         private static void UnpauseGame()
@@ -63,7 +77,14 @@ namespace GamePush
     
             if (!_tempMute)
                 MusicOn();
-            Time.timeScale = 1;
+            ApplySimulationPause();
+        }
+
+        private static void ApplySimulationPause()
+        {
+            // Browser focus and ads may mute a co-op client, but must never freeze the shared
+            // authority clock. In solo the original GamePush pause behaviour is preserved.
+            Time.timeScale = (_gamePause || _adPause) && !_cooperativeSessionActive ? 0f : 1f;
         }
     
         private static void MusicOff() => AudioListener.pause = true;

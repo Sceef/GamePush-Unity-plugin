@@ -5,6 +5,12 @@ function _GP(){
 }
 
 function _ToBuff(value){
+    if (value === undefined || value === null) {
+        value = "";
+    } else if (typeof value !== "string") {
+        value = String(value);
+    }
+
     var bufferSize = lengthBytesUTF8(value) + 1;
     var buffer = _malloc(bufferSize);
     stringToUTF8(value, buffer, bufferSize);
@@ -56,6 +62,10 @@ setTimeout(() => {
     window.onGPInit = async (gp) => {
 
         GamePush = new GamePushUnityInner(gp);
+        Object.defineProperty(window, '__GamePushUnityBridge', {
+            configurable: true,
+            value: GamePush,
+        });
 
         if (showPreloaderAd == 'True') {
             gp.ads.showPreloader();

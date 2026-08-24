@@ -38,16 +38,25 @@ namespace GamePush
        
 
         [DllImport("__Internal")]
-        private static extern void GP_Ads_ShowFullscreen();
+        private static extern void GP_Ads_ShowFullscreen(string showCountdownOverlay);
         public static void ShowFullscreen(Action onFullscreenStart = null, Action<bool> onFullscreenClose = null)
+        {
+            ShowFullscreen(false, onFullscreenStart, onFullscreenClose);
+        }
+
+        public static void ShowFullscreen(bool showCountdownOverlay, Action onFullscreenStart = null, Action<bool> onFullscreenClose = null)
         {
             _onFullscreenStart = onFullscreenStart;
             _onFullscreenClose = onFullscreenClose;
 
 #if !UNITY_EDITOR && UNITY_WEBGL
-             GP_Ads_ShowFullscreen();
+             GP_Ads_ShowFullscreen(showCountdownOverlay.ToString());
 #else
             ConsoleLog("FULL SCREEN AD: SHOW");
+#if UNITY_EDITOR
+            if (GP_AdsStub.Enabled)
+                GP_AdsStub.ShowFullscreen();
+#endif
 #endif
         }
 
@@ -64,6 +73,13 @@ namespace GamePush
             GP_Ads_ShowRewarded(idOrTag);
 #else
             ConsoleLog("SHOW REWARDED AD -> TAG: " + idOrTag);
+#if UNITY_EDITOR
+            if (GP_AdsStub.Enabled)
+            {
+                GP_AdsStub.ShowRewarded(idOrTag);
+                return;
+            }
+#endif
             OnRewardedReward?.Invoke(idOrTag);
             _onRewardedReward?.Invoke(idOrTag);
 #endif
@@ -81,6 +97,10 @@ namespace GamePush
             GP_Ads_ShowPreloader();
 #else
             ConsoleLog("PRELOADER AD: SHOW");
+#if UNITY_EDITOR
+            if (GP_AdsStub.Enabled)
+                GP_AdsStub.ShowPreloader();
+#endif
 #endif
         }
 
@@ -214,9 +234,14 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             return GP_Ads_IsFullscreenPlaying() == "true";
 #else
-
+#if UNITY_EDITOR
+            bool playing = GP_AdsStub.Enabled && GP_AdsStub.IsFullscreenPlaying;
+            ConsoleLog("IS FULLSCREEN AD PLAYING: " + playing);
+            return playing;
+#else
             ConsoleLog("IS FULLSCREEN AD PLAYING: FALSE");
             return false;
+#endif
 #endif
         }
 
@@ -227,9 +252,14 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             return GP_Ads_IsRewardedPlaying() == "true";
 #else
-
+#if UNITY_EDITOR
+            bool playing = GP_AdsStub.Enabled && GP_AdsStub.IsRewardedPlaying;
+            ConsoleLog("IS REWARDED AD PLAYING: " + playing);
+            return playing;
+#else
             ConsoleLog("IS REWARDED AD PLAYING: FALSE");
             return false;
+#endif
 #endif
         }
 
@@ -240,9 +270,14 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             return GP_Ads_IsPreloaderPlaying() == "true";
 #else
-
+#if UNITY_EDITOR
+            bool playing = GP_AdsStub.Enabled && GP_AdsStub.IsPreloaderPlaying;
+            ConsoleLog("IS PRELOADER AD PLAYING: " + playing);
+            return playing;
+#else
             ConsoleLog("IS PRELOADER AD PLAYING: FALSE");
             return false;
+#endif
 #endif
         }
 
@@ -286,46 +321,53 @@ namespace GamePush
         }
 
 
-        private void CallAdsStart() => OnAdsStart?.Invoke();
-        private void CallAdsClose(string success) => OnAdsClose?.Invoke(success == "true");
-
-        private void CallAdsFullscreenStart()
+        internal static void FireAdsStart() => OnAdsStart?.Invoke();
+        internal static void FireAdsClose(bool success) => OnAdsClose?.Invoke(success);
+        internal static void FireFullscreenStart()
         {
             _onFullscreenStart?.Invoke();
             OnFullscreenStart?.Invoke();
         }
-        private void CallAdsFullscreenClose(string success)
+        internal static void FireFullscreenClose(bool success)
         {
-            _onFullscreenClose?.Invoke(success == "true");
-            OnFullscreenClose?.Invoke(success == "true");
+            _onFullscreenClose?.Invoke(success);
+            OnFullscreenClose?.Invoke(success);
         }
-
-        private void CallAdsPreloaderStart()
+        internal static void FirePreloaderStart()
         {
             _onPreloaderStart?.Invoke();
             OnPreloaderStart?.Invoke();
         }
-        private void CallAdsPreloaderClose(string success)
+        internal static void FirePreloaderClose(bool success)
         {
-            _onPreloaderClose?.Invoke(success == "true");
-            OnPreloaderClose?.Invoke(success == "true");
+            _onPreloaderClose?.Invoke(success);
+            OnPreloaderClose?.Invoke(success);
         }
-
-        private void CallAdsRewardedStart()
+        internal static void FireRewardedStart()
         {
             _onRewardedStart?.Invoke();
             OnRewardedStart?.Invoke();
         }
-        private void CallAdsRewardedClose(string success)
+        internal static void FireRewardedClose(bool success)
         {
-            _onRewardedClose?.Invoke(success == "true");
-            OnRewardedClose?.Invoke(success == "true");
+            _onRewardedClose?.Invoke(success);
+            OnRewardedClose?.Invoke(success);
         }
-        private void CallAdsRewardedReward(string Tag)
+        internal static void FireRewardedReward(string tag)
         {
-            _onRewardedReward?.Invoke(Tag);
-            OnRewardedReward?.Invoke(Tag);
+            _onRewardedReward?.Invoke(tag);
+            OnRewardedReward?.Invoke(tag);
         }
+
+        private void CallAdsStart() => FireAdsStart();
+        private void CallAdsClose(string success) => FireAdsClose(success == "true");
+        private void CallAdsFullscreenStart() => FireFullscreenStart();
+        private void CallAdsFullscreenClose(string success) => FireFullscreenClose(success == "true");
+        private void CallAdsPreloaderStart() => FirePreloaderStart();
+        private void CallAdsPreloaderClose(string success) => FirePreloaderClose(success == "true");
+        private void CallAdsRewardedStart() => FireRewardedStart();
+        private void CallAdsRewardedClose(string success) => FireRewardedClose(success == "true");
+        private void CallAdsRewardedReward(string Tag) => FireRewardedReward(Tag);
 
         private void CallAdsStickyStart() => OnStickyStart?.Invoke();
         private void CallAdsStickyClose() => OnStickyClose?.Invoke();

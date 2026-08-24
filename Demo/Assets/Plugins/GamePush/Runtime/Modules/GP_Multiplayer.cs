@@ -1,7 +1,7 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Events;
@@ -10,14 +10,16 @@ namespace GamePush
 {
     public class GP_Multiplayer : GP_Module
     {
-        private static readonly Queue<TaskCompletionSource<MultiplayerConnectResultData>> PendingConnectOperations =
-            new Queue<TaskCompletionSource<MultiplayerConnectResultData>>();
-        private static readonly Queue<TaskCompletionSource<bool>> PendingDisconnectOperations =
-            new Queue<TaskCompletionSource<bool>>();
-#if !UNITY_EDITOR && UNITY_WEBGL
-        private static bool _connectInProgress;
-        private static bool _disconnectInProgress;
-#endif
+        private sealed class ActiveOperation<T>
+        {
+            public int Generation;
+            public TaskCompletionSource<T> Completion;
+            public CancellationTokenRegistration Cancellation = default;
+        }
+
+        private static int _operationGeneration;
+        private static ActiveOperation<MultiplayerConnectResultData> _connectOperation;
+        private static ActiveOperation<bool> _disconnectOperation;
 
         private static event UnityAction<GP_Data> _connect;
         private static event UnityAction<GP_Data> _disconnect;
@@ -66,24 +68,31 @@ namespace GamePush
             return data;
         }
 
-        private static Task<T> RunOperation<T>(Queue<TaskCompletionSource<T>> queue, Action action)
+        private static ActiveOperation<T> BeginOperation<T>(ref ActiveOperation<T> active)
         {
-            TaskCompletionSource<T> completionSource = new TaskCompletionSource<T>();
-            queue.Enqueue(completionSource);
-
-            try
+            if (active != null)
+                throw new InvalidOperationException("Multiplayer operation is already in progress");
+            var operation = new ActiveOperation<T>
             {
-                action();
-            }
-            catch (Exception exception)
-            {
-                if (queue.Count > 0 && ReferenceEquals(queue.Peek(), completionSource))
-                    queue.Dequeue();
+                Generation = Interlocked.Increment(ref _operationGeneration),
+                Completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously),
+            };
+            active = operation;
+            return operation;
+        }
 
-                completionSource.TrySetException(exception);
-            }
+        private static void CancelConnect(ActiveOperation<MultiplayerConnectResultData> operation)
+        {
+            if (!ReferenceEquals(_connectOperation, operation)) return;
+            _connectOperation = null;
+            operation.Completion.TrySetCanceled();
+        }
 
-            return completionSource.Task;
+        private static void CancelDisconnect(ActiveOperation<bool> operation)
+        {
+            if (!ReferenceEquals(_disconnectOperation, operation)) return;
+            _disconnectOperation = null;
+            operation.Completion.TrySetCanceled();
         }
 
         private static Task<T> CreateFaultedTask<T>(Exception exception)
@@ -93,23 +102,31 @@ namespace GamePush
             return completionSource.Task;
         }
 
-        private static void CompleteSuccess<T>(Queue<TaskCompletionSource<T>> queue, T result)
+        private static bool CompleteSuccess<T>(ref ActiveOperation<T> active, int generation, T result)
         {
-            if (queue.Count > 0)
-                queue.Dequeue().TrySetResult(result);
+            ActiveOperation<T> operation = active;
+            if (operation == null || operation.Generation != generation) return false;
+            active = null;
+            operation.Cancellation.Dispose();
+            operation.Completion.TrySetResult(result);
+            return true;
         }
 
-        private static void CompleteError<T>(Queue<TaskCompletionSource<T>> queue, string data)
+        private static bool CompleteError<T>(ref ActiveOperation<T> active, int generation, string data)
         {
-            if (queue.Count > 0)
-                queue.Dequeue().TrySetException(new Exception(ExtractErrorMessage(data)));
+            ActiveOperation<T> operation = active;
+            if (operation == null || operation.Generation != generation) return false;
+            active = null;
+            operation.Cancellation.Dispose();
+            operation.Completion.TrySetException(new Exception(ExtractErrorMessage(data)));
+            return true;
         }
 
 #if !UNITY_EDITOR && UNITY_WEBGL
         [DllImport("__Internal")]
-        private static extern void GP_Multiplayer_Connect(string query);
+        private static extern void GP_Multiplayer_Connect(string query, int generation);
         [DllImport("__Internal")]
-        private static extern void GP_Multiplayer_Disconnect(string query);
+        private static extern void GP_Multiplayer_Disconnect(string query, int generation);
         [DllImport("__Internal")]
         private static extern void GP_Multiplayer_DefinePlayerSchema(string schema);
         [DllImport("__Internal")]
@@ -144,32 +161,57 @@ namespace GamePush
         private static extern string GP_Multiplayer_PlayersState();
         [DllImport("__Internal")]
         private static extern string GP_Multiplayer_GlobalState();
+        [DllImport("__Internal")]
+        private static extern string GP_Multiplayer_RuntimeCapabilities();
 #endif
 
-        public static Task<MultiplayerConnectResultData> connect(MultiplayerChannelQuery query)
+        public static Task<MultiplayerConnectResultData> connect(MultiplayerChannelQuery query) =>
+            connect(query, CancellationToken.None);
+
+        public static Task<MultiplayerConnectResultData> connect(MultiplayerChannelQuery query,
+            CancellationToken cancellationToken)
         {
             string payload = JsonUtility.ToJson(query ?? new MultiplayerChannelQuery());
 #if !UNITY_EDITOR && UNITY_WEBGL
-            if (_connectInProgress)
-                return CreateFaultedTask<MultiplayerConnectResultData>(new InvalidOperationException("Multiplayer connect is already in progress"));
-
-            _connectInProgress = true;
-            return RunOperation(PendingConnectOperations, () => GP_Multiplayer_Connect(payload));
+            ActiveOperation<MultiplayerConnectResultData> operation;
+            try { operation = BeginOperation(ref _connectOperation); }
+            catch (Exception exception) { return CreateFaultedTask<MultiplayerConnectResultData>(exception); }
+            if (cancellationToken.CanBeCanceled)
+                operation.Cancellation = cancellationToken.Register(() => CancelConnect(operation));
+            if (!ReferenceEquals(_connectOperation, operation))
+                return operation.Completion.Task;
+            try { GP_Multiplayer_Connect(payload, operation.Generation); }
+            catch (Exception exception)
+            {
+                CompleteError(ref _connectOperation, operation.Generation, exception.Message);
+            }
+            return operation.Completion.Task;
 #else
             ConsoleLog($"CONNECT: {payload}");
             return Task.FromResult<MultiplayerConnectResultData>(null);
 #endif
         }
 
-        public static Task disconnect(MultiplayerChannelQuery query)
+        public static Task disconnect(MultiplayerChannelQuery query) =>
+            disconnect(query, CancellationToken.None);
+
+        public static Task disconnect(MultiplayerChannelQuery query, CancellationToken cancellationToken)
         {
             string payload = JsonUtility.ToJson(query ?? new MultiplayerChannelQuery());
 #if !UNITY_EDITOR && UNITY_WEBGL
-            if (_disconnectInProgress)
-                return CreateFaultedTask<bool>(new InvalidOperationException("Multiplayer disconnect is already in progress"));
-
-            _disconnectInProgress = true;
-            return RunOperation(PendingDisconnectOperations, () => GP_Multiplayer_Disconnect(payload));
+            ActiveOperation<bool> operation;
+            try { operation = BeginOperation(ref _disconnectOperation); }
+            catch (Exception exception) { return CreateFaultedTask<bool>(exception); }
+            if (cancellationToken.CanBeCanceled)
+                operation.Cancellation = cancellationToken.Register(() => CancelDisconnect(operation));
+            if (!ReferenceEquals(_disconnectOperation, operation))
+                return operation.Completion.Task;
+            try { GP_Multiplayer_Disconnect(payload, operation.Generation); }
+            catch (Exception exception)
+            {
+                CompleteError(ref _disconnectOperation, operation.Generation, exception.Message);
+            }
+            return operation.Completion.Task;
 #else
             ConsoleLog($"DISCONNECT: {payload}");
             return Task.CompletedTask;
@@ -384,6 +426,18 @@ namespace GamePush
             }
         }
 
+        public static GP_Data runtimeCapabilities
+        {
+            get
+            {
+#if !UNITY_EDITOR && UNITY_WEBGL
+                return CreateDataOrNull(GP_Multiplayer_RuntimeCapabilities());
+#else
+                return null;
+#endif
+            }
+        }
+
         public static void on(string eventName, UnityAction<GP_Data> callback)
         {
             switch (eventName)
@@ -497,11 +551,10 @@ namespace GamePush
 
         private void CallOnMultiplayerConnect(string data)
         {
-#if !UNITY_EDITOR && UNITY_WEBGL
-            _connectInProgress = false;
-#endif
-            GP_Data payload = new GP_Data(data);
-            _connect?.Invoke(payload);
+            MultiplayerOperationEnvelope envelope = ParseOperationEnvelope(data);
+            if (envelope.generation != 0 && (_connectOperation == null ||
+                _connectOperation.Generation != envelope.generation)) return;
+            GP_Data payload = new GP_Data(envelope.data);
 
             MultiplayerConnectResultData result = null;
             try
@@ -512,34 +565,52 @@ namespace GamePush
             {
             }
 
-            CompleteSuccess(PendingConnectOperations, result);
+            if (envelope.generation == 0 ||
+                CompleteSuccess(ref _connectOperation, envelope.generation, result))
+                _connect?.Invoke(payload);
         }
 
         private void CallOnMultiplayerDisconnect(string data)
         {
-#if !UNITY_EDITOR && UNITY_WEBGL
-            _disconnectInProgress = false;
-#endif
-            _disconnect?.Invoke(new GP_Data(data));
-            CompleteSuccess(PendingDisconnectOperations, true);
+            MultiplayerOperationEnvelope envelope = ParseOperationEnvelope(data);
+            if (envelope.generation != 0 && (_disconnectOperation == null ||
+                _disconnectOperation.Generation != envelope.generation)) return;
+            if (envelope.generation == 0 ||
+                CompleteSuccess(ref _disconnectOperation, envelope.generation, true))
+                _disconnect?.Invoke(new GP_Data(envelope.data));
         }
 
         private void CallOnMultiplayerConnectError(string data)
         {
-#if !UNITY_EDITOR && UNITY_WEBGL
-            _connectInProgress = false;
-#endif
-            _connectError?.Invoke(new GP_Data(data));
-            CompleteError(PendingConnectOperations, data);
+            MultiplayerOperationEnvelope envelope = ParseOperationEnvelope(data);
+            if (envelope.generation != 0 && (_connectOperation == null ||
+                _connectOperation.Generation != envelope.generation)) return;
+            if (envelope.generation == 0 ||
+                CompleteError(ref _connectOperation, envelope.generation, envelope.data))
+                _connectError?.Invoke(new GP_Data(envelope.data));
         }
 
         private void CallOnMultiplayerDisconnectError(string data)
         {
-#if !UNITY_EDITOR && UNITY_WEBGL
-            _disconnectInProgress = false;
-#endif
-            _disconnectError?.Invoke(new GP_Data(data));
-            CompleteError(PendingDisconnectOperations, data);
+            MultiplayerOperationEnvelope envelope = ParseOperationEnvelope(data);
+            if (envelope.generation != 0 && (_disconnectOperation == null ||
+                _disconnectOperation.Generation != envelope.generation)) return;
+            if (envelope.generation == 0 ||
+                CompleteError(ref _disconnectOperation, envelope.generation, envelope.data))
+                _disconnectError?.Invoke(new GP_Data(envelope.data));
+        }
+
+        private static MultiplayerOperationEnvelope ParseOperationEnvelope(string data)
+        {
+            try
+            {
+                MultiplayerOperationEnvelope envelope = JsonUtility.FromJson<MultiplayerOperationEnvelope>(data);
+                if (envelope != null && envelope.wrapped) return envelope;
+            }
+            catch
+            {
+            }
+            return new MultiplayerOperationEnvelope { data = data, generation = 0 };
         }
 
         private void CallOnMultiplayerSendStateError(string data) => _sendStateError?.Invoke(new GP_Data(data));
@@ -605,6 +676,64 @@ namespace GamePush
         public int ping;
         public float connectionStability;
         public int sessionDuration;
+    }
+
+    [Serializable]
+    public class MultiplayerPlayerJoinedData
+    {
+        public MultiplayerConnectedPlayerData player;
+        public bool isSelf;
+    }
+
+    [Serializable]
+    public class MultiplayerHostMigratedData
+    {
+        public int oldHost;
+        public int newHost;
+    }
+
+    [Serializable]
+    public class MultiplayerMessageEventData
+    {
+        public string eventName = string.Empty;
+        public string senderId = string.Empty;
+        public string data = string.Empty;
+        public double timestamp;
+    }
+
+    [Serializable]
+    public class MultiplayerPlayerStateEntryData
+    {
+        public string playerId = string.Empty;
+        public string state = string.Empty;
+    }
+
+    [Serializable]
+    public class MultiplayerPlayerStateEntriesData
+    {
+        public MultiplayerPlayerStateEntryData[] players = Array.Empty<MultiplayerPlayerStateEntryData>();
+    }
+
+    [Serializable]
+    public class MultiplayerRuntimeCapabilitiesData
+    {
+        public bool connect;
+        public bool disconnect;
+        public bool setPlayerState;
+        public bool setGlobalState;
+        public bool sendMessage;
+        public bool hostMigrationEvents;
+
+        public bool IsSupported => connect && disconnect && setPlayerState && setGlobalState &&
+                                   sendMessage && hostMigrationEvents;
+    }
+
+    [Serializable]
+    public class MultiplayerOperationEnvelope
+    {
+        public bool wrapped;
+        public int generation;
+        public string data = string.Empty;
     }
 
     [Serializable]

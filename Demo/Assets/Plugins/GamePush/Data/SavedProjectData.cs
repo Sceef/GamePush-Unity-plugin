@@ -14,6 +14,8 @@ namespace GamePush.Data
         public bool waitPluginReady;
         public bool gameReadyAuto;
         public bool autoPause;
+        public bool adsStubs = true;
+        public bool paymentsStubs = true;
     }
 
 }

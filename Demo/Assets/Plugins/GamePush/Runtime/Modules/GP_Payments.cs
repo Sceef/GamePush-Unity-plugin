@@ -31,6 +31,8 @@ namespace GamePush
         public static event UnityAction OnSubscribeError;
         public static event UnityAction<string> OnUnsubscribeSuccess;
         public static event UnityAction OnUnsubscribeError;
+        public static event UnityAction OnOpen;
+        public static event UnityAction OnClose;
         
         private static event Action<List<FetchProducts>> _onFetchProducts;
         private static event Action _onFetchProductsError;
@@ -48,6 +50,8 @@ namespace GamePush
 
         private static event Action<string> _onUnsubscribeSuccess;
         private static event Action _onUnsubscribeError;
+        private static event Action _onOpen;
+        private static event Action _onClose;
         #endregion
 
         #region DLL Import
@@ -61,6 +65,12 @@ namespace GamePush
         [DllImport("__Internal")]
         private static extern string GP_Payments_IsAvailable();
         [DllImport("__Internal")]
+        private static extern string GP_Payments_Products();
+        [DllImport("__Internal")]
+        private static extern string GP_Payments_Purchases();
+        [DllImport("__Internal")]
+        private static extern string GP_Payments_Has(string idOrTag);
+        [DllImport("__Internal")]
         private static extern string GP_Payments_IsSubscriptionsAvailable();
         [DllImport("__Internal")]
         private static extern void GP_Payments_Subscribe(string idOrTag);
@@ -73,13 +83,15 @@ namespace GamePush
 
         private void CallPaymentsFetchProducts(string data)
         {
-            _onFetchProducts?.Invoke(UtilityJSON.GetList<FetchProducts>(data));
-            OnFetchProducts?.Invoke(UtilityJSON.GetList<FetchProducts>(data));
+            Products = ParseList<FetchProducts>(data);
+            _onFetchProducts?.Invoke(Products);
+            OnFetchProducts?.Invoke(Products);
         }
         private void CallPaymentsFetchPlayerPurchases(string data)
         { 
-            _onFetchPlayerPurchases?.Invoke(UtilityJSON.GetList<FetchPlayerPurchases>(data));
-            OnFetchPlayerPurchases?.Invoke(UtilityJSON.GetList<FetchPlayerPurchases>(data));
+            Purchases = ParseList<FetchPlayerPurchases>(data);
+            _onFetchPlayerPurchases?.Invoke(Purchases);
+            OnFetchPlayerPurchases?.Invoke(Purchases);
         }
 
         private void CallPaymentsFetchProductsError()
@@ -131,12 +143,72 @@ namespace GamePush
             _onUnsubscribeError?.Invoke();
             OnUnsubscribeError?.Invoke();
         }
+
+        private void CallPaymentsOpen()
+        {
+            _onOpen?.Invoke();
+            OnOpen?.Invoke();
+        }
+
+        private void CallPaymentsClose()
+        {
+            _onClose?.Invoke();
+            OnClose?.Invoke();
+        }
         #endregion
+
+        public static void Open(Action onOpen = null, Action onClose = null)
+        {
+            _onOpen = onOpen;
+            _onClose = onClose;
+        }
 
         private async void Start()
         {
             await GP_Init.Ready;
-            Fetch(products => {Products = products;}, null, purchases => {Purchases = purchases;});
+            GetProducts();
+            GetPurchases();
+        }
+
+        public static List<FetchProducts> GetProducts()
+        {
+#if !UNITY_EDITOR && UNITY_WEBGL
+            Products = ParseList<FetchProducts>(GP_Payments_Products());
+#else
+            Products = GP_Settings.instance.GetProducts();
+            ConsoleLog("PRODUCTS: " + Products.Count);
+#endif
+            return Products;
+        }
+
+        public static List<FetchPlayerPurchases> GetPurchases()
+        {
+#if !UNITY_EDITOR && UNITY_WEBGL
+            Purchases = ParseList<FetchPlayerPurchases>(GP_Payments_Purchases());
+#else
+#if UNITY_EDITOR
+            if (GP_PaymentsStubSession.Enabled)
+            {
+                Purchases = GP_PaymentsStubSession.GetPurchases();
+                ConsoleLog("PURCHASES: " + Purchases.Count);
+                return Purchases;
+            }
+#endif
+            Purchases = GP_Settings.instance.GetPlayerPurchases();
+            ConsoleLog("PURCHASES: " + Purchases.Count);
+#endif
+            return Purchases;
+        }
+
+        public static bool Has(string idOrTag)
+        {
+#if !UNITY_EDITOR && UNITY_WEBGL
+            return GP_Payments_Has(idOrTag) == "true";
+#else
+            bool isVal = HasCachedPurchase(idOrTag);
+            ConsoleLog("HAS: " + idOrTag + " : " + isVal);
+            return isVal;
+#endif
         }
 
         public static void Fetch(Action<List<FetchProducts>> onFetchProducts = null, Action onFetchProductsError = null, Action<List<FetchPlayerPurchases>> onFetchPlayerPurchases = null)
@@ -150,8 +222,12 @@ namespace GamePush
 #else
 
             ConsoleLog("FETCH PRODUCTS");
-            OnFetchProducts?.Invoke(GP_Settings.instance.GetProducts());
-            OnFetchPlayerPurchases?.Invoke(GP_Settings.instance.GetPlayerPurchases());
+            Products = GetProducts();
+            Purchases = GetPurchases();
+            _onFetchProducts?.Invoke(Products);
+            OnFetchProducts?.Invoke(Products);
+            _onFetchPlayerPurchases?.Invoke(Purchases);
+            OnFetchPlayerPurchases?.Invoke(Purchases);
 #endif
         }
 
@@ -163,10 +239,15 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Payments_Purchase(idOrTag);
 #else
-
             ConsoleLog("PURCHASE: " + idOrTag);
-            _onPurchaseSuccess?.Invoke(idOrTag);
-            OnPurchaseSuccess?.Invoke(idOrTag);
+#if UNITY_EDITOR
+            if (GP_PaymentsStubSession.Enabled)
+            {
+                GP_PaymentsStubSession.BeginPurchase(idOrTag);
+                return;
+            }
+#endif
+            FirePurchaseSuccess(idOrTag);
 #endif
         }
         
@@ -178,10 +259,18 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Payments_Consume(idOrTag);
 #else
-
             ConsoleLog("CONSUME: " + idOrTag);
-            _onConsumeSuccess?.Invoke(idOrTag);
-            OnConsumeSuccess?.Invoke(idOrTag);
+#if UNITY_EDITOR
+            if (GP_PaymentsStubSession.Enabled)
+            {
+                if (GP_PaymentsStubSession.Consume(idOrTag))
+                    FireConsumeSuccess(idOrTag);
+                else
+                    FireConsumeError();
+                return;
+            }
+#endif
+            FireConsumeSuccess(idOrTag);
 #endif
         }
 
@@ -215,10 +304,15 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Payments_Subscribe(idOrTag);
 #else
-
             ConsoleLog("SUBSCRIBE: " +  idOrTag);
-            _onSubscribeSuccess?.Invoke(idOrTag);
-            OnSubscribeSuccess?.Invoke(idOrTag);
+#if UNITY_EDITOR
+            if (GP_PaymentsStubSession.Enabled)
+            {
+                GP_PaymentsStubSession.BeginSubscribe(idOrTag);
+                return;
+            }
+#endif
+            FireSubscribeSuccess(idOrTag);
 #endif
         }
 
@@ -230,11 +324,103 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Payments_Unsubscribe(idOrTag);
 #else
-
             ConsoleLog("UNSUBSCRIBE: " + idOrTag);
+#if UNITY_EDITOR
+            if (GP_PaymentsStubSession.Enabled)
+            {
+                if (GP_PaymentsStubSession.Unsubscribe(idOrTag))
+                    FireUnsubscribeSuccess(idOrTag);
+                else
+                    FireUnsubscribeError();
+                return;
+            }
+#endif
+            FireUnsubscribeSuccess(idOrTag);
+#endif
+        }
+
+        internal static void FirePurchaseSuccess(string idOrTag)
+        {
+            _onPurchaseSuccess?.Invoke(idOrTag);
+            OnPurchaseSuccess?.Invoke(idOrTag);
+        }
+
+        internal static void FirePurchaseError()
+        {
+            _onPurchaseError?.Invoke();
+            OnPurchaseError?.Invoke();
+        }
+
+        internal static void FireConsumeSuccess(string idOrTag)
+        {
+            _onConsumeSuccess?.Invoke(idOrTag);
+            OnConsumeSuccess?.Invoke(idOrTag);
+        }
+
+        internal static void FireConsumeError()
+        {
+            _onConsumeError?.Invoke();
+            OnConsumeError?.Invoke();
+        }
+
+        internal static void FireSubscribeSuccess(string idOrTag)
+        {
+            _onSubscribeSuccess?.Invoke(idOrTag);
+            OnSubscribeSuccess?.Invoke(idOrTag);
+        }
+
+        internal static void FireSubscribeError()
+        {
+            _onSubscribeError?.Invoke();
+            OnSubscribeError?.Invoke();
+        }
+
+        internal static void FireUnsubscribeSuccess(string idOrTag)
+        {
             _onUnsubscribeSuccess?.Invoke(idOrTag);
             OnUnsubscribeSuccess?.Invoke(idOrTag);
-#endif
+        }
+
+        internal static void FireUnsubscribeError()
+        {
+            _onUnsubscribeError?.Invoke();
+            OnUnsubscribeError?.Invoke();
+        }
+
+        internal static void FireOpen()
+        {
+            _onOpen?.Invoke();
+            OnOpen?.Invoke();
+        }
+
+        internal static void FireClose()
+        {
+            _onClose?.Invoke();
+            OnClose?.Invoke();
+        }
+
+        private static bool HasCachedPurchase(string idOrTag)
+        {
+            if (string.IsNullOrEmpty(idOrTag))
+                return false;
+
+            foreach (FetchPlayerPurchases purchase in GetPurchases())
+            {
+                if (purchase.tag == idOrTag)
+                    return true;
+                if (int.TryParse(idOrTag, out int id) && purchase.productId == id)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static List<T> ParseList<T>(string data)
+        {
+            if (string.IsNullOrEmpty(data) || data == "null" || data == "undefined")
+                return new List<T>();
+
+            return UtilityJSON.GetList<T>(data) ?? new List<T>();
         }
 
     }

@@ -233,6 +233,8 @@ namespace GamePush
         public string[] tags;
         public int width;
         public int height;
+        public ReactionCount[] reactions;
+        public PlayerReaction[] playerReactions;
     }
 
     [System.Serializable]

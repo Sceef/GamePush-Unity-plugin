@@ -23,9 +23,14 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
            return GP_IsPaused() == "true";
 #else
-
+#if UNITY_EDITOR
+            bool paused = GP_AdsStub.Enabled && GP_AdsStub.IsPaused;
+            ConsoleLog("IS PAUSED: " + paused);
+            return paused;
+#else
             ConsoleLog("IS PAUSED: FALSE");
             return false;
+#endif
 #endif
         }
 
@@ -111,8 +116,11 @@ namespace GamePush
         }
 
 
-        private void CallOnPause() => OnPause?.Invoke();
-        private void CallOnResume() => OnResume?.Invoke();
+        internal static void FirePause() => OnPause?.Invoke();
+        internal static void FireResume() => OnResume?.Invoke();
+
+        private void CallOnPause() => FirePause();
+        private void CallOnResume() => FireResume();
     }
 
 }

@@ -5,11 +5,17 @@ using System.Threading.Tasks;
 using UnityEngine;
 using GamePush.Data;
 using UnityEngine.Rendering;
+using System.Runtime.InteropServices;
 
 namespace GamePush
 {
     public class GP_Init : GP_Module
     {
+#if UNITY_WEBGL
+        [DllImport("__Internal")]
+        private static extern void GP_UnityReady();
+#endif
+
         public static bool isReady = false;
 
         public static Task Ready;
@@ -30,10 +36,11 @@ namespace GamePush
         
         private void Start()
         {
-
 #if UNITY_EDITOR || !UNITY_WEBGL
             GP_Logger.SystemLog("SDK ready");
             CallOnSDKReady();
+#else
+            GP_UnityReady();
 #endif
         }
 
@@ -49,7 +56,6 @@ namespace GamePush
 
             if (ProjectData.GAMEREADY_AUTOCALL)
                 GP_Game.GameReady();
-            
         }
 
         private void CallOnSDKReady()

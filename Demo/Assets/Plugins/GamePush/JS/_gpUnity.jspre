@@ -1,3 +1,131 @@
+function errorToString(error) {
+    if (!error) {
+        return '';
+    }
+    if (typeof error === 'string') {
+        return error;
+    }
+    return error.code || error.message || String(error);
+}
+
+function isExpectedUserCancel(error) {
+    const message = errorToString(error).toLowerCase();
+    return /cancel|cancelled|canceled|payment_rejected|rejected/.test(message);
+}
+
+function ignoreExpectedPromise(result) {
+    if (!result || typeof result.catch !== 'function') {
+        return result;
+    }
+
+    result.catch((error) => {
+        if (!isExpectedUserCancel(error)) {
+            console.warn(error);
+        }
+    });
+    return result;
+}
+
+function focusGame() {
+    try {
+        window.focus();
+        const canvas = document.querySelector('#unity-canvas');
+        if (canvas && typeof canvas.focus === 'function') {
+            canvas.focus();
+        }
+    } catch (error) {
+        // ignore
+    }
+}
+
+function mapReactionCounts(reactions) {
+    if (!reactions || typeof reactions !== 'object') {
+        return [];
+    }
+
+    return Object.keys(reactions).map((type) => ({
+        type,
+        count: Number(reactions[type] || 0)
+    }));
+}
+
+function mapPlayerReactions(playerReactions) {
+    if (!Array.isArray(playerReactions)) {
+        return [];
+    }
+
+    return playerReactions.map((reaction) => ({
+        reactionType: reaction && reaction.reactionType ? reaction.reactionType : String(reaction || '')
+    }));
+}
+
+function mapEntityWithReactions(entity) {
+    if (!entity || typeof entity !== 'object') {
+        return entity;
+    }
+
+    return {
+        ...entity,
+        id: entity.id == null ? '' : String(entity.id),
+        reactions: mapReactionCounts(entity.reactions),
+        playerReactions: mapPlayerReactions(entity.playerReactions)
+    };
+}
+
+function mapFeedbackMessage(message) {
+    message = message || {};
+    return {
+        id: message.id == null ? '' : String(message.id),
+        text: message.text || '',
+        files: message.files || [],
+        attachments: message.attachments || [],
+        author: message.author || '',
+        feedbackId: message.feedbackId == null ? '' : String(message.feedbackId),
+        createdAt: message.createdAt || ''
+    };
+}
+
+function mapFeedback(feedback) {
+    feedback = feedback || {};
+    return {
+        id: feedback.id == null ? '' : String(feedback.id),
+        type: feedback.type || '',
+        text: feedback.text || '',
+        status: feedback.status || '',
+        files: feedback.files || [],
+        messages: (feedback.messages || []).map(mapFeedbackMessage),
+        playerId: Number(feedback.playerId || 0),
+        projectId: Number(feedback.projectId || 0),
+        platformId: Number(feedback.platformId || 0),
+        createdAt: feedback.createdAt || '',
+        updatedAt: feedback.updatedAt || ''
+    };
+}
+
+function mapReactionResult(result) {
+    result = result || {};
+    return {
+        entityType: result.entityType || '',
+        entityId: result.entityId == null ? '' : String(result.entityId),
+        reactionType: result.reactionType || '',
+        counter: Number(result.counter || 0)
+    };
+}
+
+function parseJsonPayload(value, fallback) {
+    if (!value) {
+        return fallback;
+    }
+    if (typeof value === 'object') {
+        return value;
+    }
+    try {
+        return JSON.parse(value);
+    } catch (error) {
+        return fallback;
+    }
+}
+
 class GamePushUnityInner {
     constructor(gp) {
         this.gp = gp;
@@ -567,25 +695,29 @@ class GamePushUnityInner {
         this.multiplayerPlayerInitializerResolvers = new Map();
 
         this.gp.multiplayer.on('connect', (result) => {
-            this.trigger('CallOnMultiplayerConnect', JSON.stringify(result));
+            this.trigger('CallOnMultiplayerConnect', wrapMultiplayerOperation(0, result));
         });
         this.gp.multiplayer.on('disconnect', (result) => {
             this.clearMultiplayerPlayerInitializerResolvers();
-            this.trigger('CallOnMultiplayerDisconnect', JSON.stringify(result));
+            this.trigger('CallOnMultiplayerDisconnect', wrapMultiplayerOperation(0, result));
         });
         this.gp.multiplayer.on('error:connect', (error) => {
             this.trigger(
                 'CallOnMultiplayerConnectError',
-                JSON.stringify(serializeMultiplayerError(error))
+                wrapMultiplayerOperation(0, serializeMultiplayerError(error))
             );
         });
         this.gp.multiplayer.on('error:disconnect', (error) => {
             this.trigger(
                 'CallOnMultiplayerDisconnectError',
-                JSON.stringify(serializeMultiplayerError(error))
+                wrapMultiplayerOperation(0, serializeMultiplayerError(error))
             );
         });
         this.gp.multiplayer.on('error:sendState', (error) => {
+            console.warn(
+                '[GamePush Unity] Multiplayer sendState error:',
+                serializeMultiplayerError(error)
+            );
             this.trigger(
                 'CallOnMultiplayerSendStateError',
                 JSON.stringify(serializeMultiplayerError(error))
@@ -600,17 +732,17 @@ class GamePushUnityInner {
         this.gp.multiplayer.on('playersUpdated', (playersState) => {
             this.trigger(
                 'CallOnMultiplayerPlayersUpdated',
-                JSON.stringify(mapMultiplayerToObject(playersState))
+                JSON.stringify(mapMultiplayerStateEntries(playersState))
             );
         });
         this.gp.multiplayer.on('globalStateUpdated', (globalState) => {
             this.trigger(
                 'CallOnMultiplayerGlobalStateUpdated',
-                JSON.stringify(globalState)
+                JSON.stringify(serializeMultiplayerGlobalState(globalState))
             );
         });
         this.gp.multiplayer.on('customEvent', (event) => {
-            this.trigger('CallOnMultiplayerCustomEvent', JSON.stringify(event));
+            this.trigger('CallOnMultiplayerCustomEvent', JSON.stringify(normalizeMultiplayerEvent(event)));
         });
         this.gp.multiplayer.on('becameHost', () => {
             this.trigger('CallOnMultiplayerBecameHost');
@@ -789,6 +921,41 @@ class GamePushUnityInner {
         this.gp.sounds.on('unmute:music', () => {
             this.trigger('CallOnSoundsUnmuteMusic')
         });
+
+        if (this.gp.payments) {
+            this.gp.payments.on('open', () => this.trigger('CallPaymentsOpen'));
+            this.gp.payments.on('close', () => {
+                this.trigger('CallPaymentsClose');
+                focusGame();
+            });
+        }
+
+        if (this.gp.feedbacks) {
+            this.gp.feedbacks.on('event:feedbackMessage', (message) =>
+                this.trigger('CallFeedbacksMessageEvent', JSON.stringify(mapFeedbackMessage(message)))
+            );
+            this.gp.feedbacks.on('event:feedbackCreated', (feedback) =>
+                this.trigger('CallFeedbacksCreatedEvent', JSON.stringify(mapFeedback(feedback)))
+            );
+            this.gp.feedbacks.on('event:feedbackStatusUpdated', (feedback) =>
+                this.trigger('CallFeedbacksStatusUpdatedEvent', JSON.stringify(mapFeedback(feedback)))
+            );
+            this.gp.feedbacks.on('event:feedbackPlatformStatusUpdated', (feedback) =>
+                this.trigger(
+                    'CallFeedbacksPlatformStatusUpdatedEvent',
+                    JSON.stringify(mapFeedback(feedback))
+                )
+            );
+        }
+
+        if (this.gp.reactions) {
+            this.gp.reactions.on('event:set', (result) =>
+                this.trigger('CallReactionsSetEvent', JSON.stringify(mapReactionResult(result)))
+            );
+            this.gp.reactions.on('event:unset', (result) =>
+                this.trigger('CallReactionsUnsetEvent', JSON.stringify(mapReactionResult(result)))
+            );
+        }
     }
 
     async trigger(eventName, value) {
@@ -871,13 +1038,16 @@ class GamePushUnityInner {
         return this.gp.app.url;
     }
     AppRequestReview() {
-        return this.gp.app.requestReview().then((result) => {
-            if (result.success) {
-                this.trigger('CallReviewResult', result.rating);
-            } else {
-                this.trigger('CallReviewClose', result.error);
-            }
-        });
+        return ignoreExpectedPromise(
+            this.gp.app.requestReview().then((result) => {
+                if (result.success) {
+                    this.trigger('CallReviewResult', result.rating);
+                } else {
+                    this.trigger('CallReviewClose', result.error);
+                }
+                focusGame();
+            })
+        );
     }
 
     AppCanRequestReview() {
@@ -889,9 +1059,11 @@ class GamePushUnityInner {
     }
 
     AppAddShortcut() {
-        return this.gp.app
-            .addShortcut()
-            .then((success) => this.trigger('CallAddShortcut', success));
+        return ignoreExpectedPromise(
+            this.gp.app
+                .addShortcut()
+                .then((success) => this.trigger('CallAddShortcut', success))
+        );
     }
 
     AppCanAddShortcut() {
@@ -1009,13 +1181,23 @@ class GamePushUnityInner {
     }
 
     PlayerLoad() {
-        return this.gp.player.load();
+        return ignoreExpectedPromise(this.gp.player.load());
     }
     PlayerLogin() {
-        return this.gp.player.login();
+        const result = this.gp.player.login();
+        if (result && typeof result.finally === 'function') {
+            return ignoreExpectedPromise(result.finally(() => focusGame()));
+        }
+        focusGame();
+        return ignoreExpectedPromise(result);
     }
     PlayerLogout() {
-        return this.gp.player.logout();
+        const result = this.gp.player.logout();
+        if (result && typeof result.finally === 'function') {
+            return ignoreExpectedPromise(result.finally(() => focusGame()));
+        }
+        focusGame();
+        return ignoreExpectedPromise(result);
     }
     PlayerFetchFields() {
         this.gp.player.fetchFields();
@@ -1418,9 +1600,11 @@ class GamePushUnityInner {
                 window.focus();
             })
             .catch((err) => {
-                console.warn(err);
+                if (!isExpectedUserCancel(err)) {
+                    console.warn(err);
+                }
                 this.trigger('CallPaymentsPurchaseError');
-                window.focus();
+                focusGame();
             });
     }
     PaymentsConsume(idOrTag) {
@@ -1444,6 +1628,20 @@ class GamePushUnityInner {
     }
     PaymentsIsAvailable() {
         return this.toUnity(this.gp.payments.isAvailable);
+    }
+
+    PaymentsProducts() {
+        return this.toUnity((this.gp.payments && this.gp.payments.products) || []);
+    }
+
+    PaymentsPurchases() {
+        return this.toUnity((this.gp.payments && this.gp.payments.purchases) || []);
+    }
+
+    PaymentsHas(idOrTag) {
+        const id = parseInt(idOrTag, 10) || 0;
+        const query = id > 0 ? id : idOrTag;
+        return this.toUnity(this.gp.payments.has(query));
     }
 
     // Subscriptions
@@ -1488,34 +1686,38 @@ class GamePushUnityInner {
     }
 
     FullscreenOpen() {
-        return this.gp.fullscreen.open();
+        return ignoreExpectedPromise(this.gp.fullscreen.open());
     }
     FullscreenClose() {
-        return this.gp.fullscreen.close();
+        return ignoreExpectedPromise(this.gp.fullscreen.close());
     }
     FullscreenToggle() {
-        return this.gp.fullscreen.toggle();
+        return ignoreExpectedPromise(this.gp.fullscreen.toggle());
     }
 
     // ADS
-    AdsShowFullscreen() {
-        return this.gp.ads.showFullscreen();
+    AdsShowFullscreen(showCountdownOverlay) {
+        const options = {};
+        if (this.getBoolean(showCountdownOverlay) === true) {
+            options.showCountdownOverlay = true;
+        }
+        return ignoreExpectedPromise(this.gp.ads.showFullscreen(options));
     }
     AdsShowRewarded(idOrTag) {
         this.lastRewardedTag = idOrTag;
-        return this.gp.ads.showRewardedVideo();
+        return ignoreExpectedPromise(this.gp.ads.showRewardedVideo());
     }
     AdsShowPreloader() {
-        return this.gp.ads.showPreloader();
+        return ignoreExpectedPromise(this.gp.ads.showPreloader());
     }
     AdsShowSticky() {
-        return this.gp.ads.showSticky();
+        return ignoreExpectedPromise(this.gp.ads.showSticky());
     }
     AdsCloseSticky() {
-        return this.gp.ads.closeSticky();
+        return ignoreExpectedPromise(this.gp.ads.closeSticky());
     }
     AdsRefreshSticky() {
-        return this.gp.ads.refreshSticky();
+        return ignoreExpectedPromise(this.gp.ads.refreshSticky());
     }
 
     AdsIsAdblockEnabled() {
@@ -1570,16 +1772,16 @@ class GamePushUnityInner {
 
     /* SOCIAL */
     SocialsShare(text, url, image) {
-        return this.gp.socials.share({ text, url, image });
+        return ignoreExpectedPromise(this.gp.socials.share({ text, url, image }));
     }
     SocialsPost(text, url, image) {
-        return this.gp.socials.post({ text, url, image });
+        return ignoreExpectedPromise(this.gp.socials.post({ text, url, image }));
     }
     SocialsInvite(text, url, image) {
-        return this.gp.socials.invite({ text, url, image });
+        return ignoreExpectedPromise(this.gp.socials.invite({ text, url, image }));
     }
     SocialsJoinCommunity() {
-        return this.gp.socials.joinCommunity();
+        return ignoreExpectedPromise(this.gp.socials.joinCommunity());
     }
     SocialsCommunityLink() {
         return this.toUnity(this.gp.socials.communityLink);
@@ -1623,7 +1825,7 @@ class GamePushUnityInner {
     GamesCollectionsOpen(idOrTag) {
         const id = parseInt(idOrTag, 10) || 0;
         const query = id > 0 ? { id } : { tag: idOrTag || 'ANY' };
-        return this.gp.gamesCollections.open(query);
+        return ignoreExpectedPromise(this.gp.gamesCollections.open(query));
     }
     GamesCollectionsFetch(idOrTag) {
         const id = parseInt(idOrTag, 10) || 0;
@@ -1888,7 +2090,7 @@ class GamePushUnityInner {
                 this.trigger('CallFilesFetchCanLoadMore', result.canLoadMore);
                 this.trigger(
                     'CallFilesFetchSuccess',
-                    JSON.stringify(result.items)
+                    JSON.stringify(((result && result.items) || []).map(mapEntityWithReactions))
                 );
             })
             .catch((err) => {
@@ -1907,7 +2109,7 @@ class GamePushUnityInner {
                 );
                 this.trigger(
                     'CallFilesFetchMoreSuccess',
-                    JSON.stringify(result.items)
+                    JSON.stringify(((result && result.items) || []).map(mapEntityWithReactions))
                 );
             })
             .catch((err) => {
@@ -2308,16 +2510,28 @@ class GamePushUnityInner {
     // Channels
 
     // Multiplayer
-    Multiplayer_Connect(query) {
-        ignoreMultiplayerPromise(
-            this.gp.multiplayer.connect(parseMultiplayerJson(query, {}))
-        );
+    Multiplayer_Connect(query, generation) {
+        Promise.resolve(this.gp.multiplayer.connect(parseMultiplayerJson(query, {})))
+            .then((result) => this.trigger(
+                'CallOnMultiplayerConnect',
+                wrapMultiplayerOperation(generation, result)
+            ))
+            .catch((error) => this.trigger(
+                'CallOnMultiplayerConnectError',
+                wrapMultiplayerOperation(generation, serializeMultiplayerError(error))
+            ));
     }
 
-    Multiplayer_Disconnect(query) {
-        ignoreMultiplayerPromise(
-            this.gp.multiplayer.disconnect(parseMultiplayerJson(query, {}))
-        );
+    Multiplayer_Disconnect(query, generation) {
+        Promise.resolve(this.gp.multiplayer.disconnect(parseMultiplayerJson(query, {})))
+            .then((result) => this.trigger(
+                'CallOnMultiplayerDisconnect',
+                wrapMultiplayerOperation(generation, result)
+            ))
+            .catch((error) => this.trigger(
+                'CallOnMultiplayerDisconnectError',
+                wrapMultiplayerOperation(generation, serializeMultiplayerError(error))
+            ));
     }
 
     Multiplayer_DefinePlayerSchema(schema) {
@@ -2386,11 +2600,23 @@ class GamePushUnityInner {
     }
 
     Multiplayer_SetPlayerState(state) {
+        const now = performance.now();
+        // GamePush runs its multiplayer tick loop through WorkerTimer in a hidden tab. Do not
+        // add a second visibility throttle here: it made peers appear frozen for a full second.
+        const interval = 100;
+        if (now < (this.multiplayerNextPlayerStateAt || 0)) return;
+        this.multiplayerNextPlayerStateAt = now + interval;
         this.gp.multiplayer.setPlayerState(parseMultiplayerJson(state, {}));
     }
 
     Multiplayer_SetGlobalState(state) {
-        this.gp.multiplayer.setGlobalState(parseMultiplayerJson(state, {}));
+        const now = performance.now();
+        const interval = 200;
+        if (now < (this.multiplayerNextGlobalStateAt || 0)) return;
+        this.multiplayerNextGlobalStateAt = now + interval;
+        this.gp.multiplayer.setGlobalState(
+            normalizeMultiplayerGlobalState(parseMultiplayerJson(state, {}))
+        );
     }
 
     Multiplayer_SetMode(mode) {
@@ -2436,11 +2662,26 @@ class GamePushUnityInner {
     }
 
     Multiplayer_PlayersState() {
-        return this.toUnity(mapMultiplayerToObject(this.gp.multiplayer.playersState));
+        return this.toUnity(mapMultiplayerStateEntries(this.gp.multiplayer.playersState));
     }
 
     Multiplayer_GlobalState() {
-        return this.toUnity(this.gp.multiplayer.globalState);
+        return this.toUnity(
+            serializeMultiplayerGlobalState(this.gp.multiplayer.globalState)
+        );
+    }
+
+    Multiplayer_RuntimeCapabilities() {
+        const multiplayer = this.gp && this.gp.multiplayer;
+        const canListen = multiplayer && typeof multiplayer.on === 'function';
+        return this.toUnity({
+            connect: !!multiplayer && typeof multiplayer.connect === 'function',
+            disconnect: !!multiplayer && typeof multiplayer.disconnect === 'function',
+            setPlayerState: !!multiplayer && typeof multiplayer.setPlayerState === 'function',
+            setGlobalState: !!multiplayer && typeof multiplayer.setGlobalState === 'function',
+            sendMessage: !!multiplayer && typeof multiplayer.sendMessage === 'function',
+            hostMigrationEvents: !!canListen
+        });
     }
     // Multiplayer
 
@@ -2773,7 +3014,7 @@ class GamePushUnityInner {
                 this.trigger('CallImagesFetchCanLoadMore', result.canLoadMore);
                 this.trigger(
                     'CallImagesFetchSuccess',
-                    JSON.stringify(result.items)
+                    JSON.stringify(((result && result.items) || []).map(mapEntityWithReactions))
                 );
             })
             .catch((err) => {
@@ -2789,7 +3030,7 @@ class GamePushUnityInner {
                 this.trigger('CallImagesFetchCanLoadMore', result.canLoadMore);
                 this.trigger(
                     'CallImagesFetchSuccess',
-                    JSON.stringify(result.items)
+                    JSON.stringify(((result && result.items) || []).map(mapEntityWithReactions))
                 );
             })
             .catch((err) => {
@@ -2946,34 +3187,238 @@ class GamePushUnityInner {
     }
     //Storage
     
+    // Feedbacks
+    FeedbacksSend(payload) {
+        if (!this.gp.feedbacks) {
+            this.trigger('CallFeedbacksSendError', 'not_supported');
+            return;
+        }
+
+        const data = parseJsonPayload(payload, {});
+        ignoreExpectedPromise(
+            this.gp.feedbacks
+                .send({
+                    type: data.type,
+                    text: data.text,
+                    files: data.files || []
+                })
+                .then((feedback) => {
+                    this.trigger('CallFeedbacksSend', JSON.stringify(mapFeedback(feedback)));
+                })
+                .catch((error) => {
+                    this.trigger('CallFeedbacksSendError', errorToString(error));
+                })
+        );
+    }
+
+    FeedbacksOpen(type, status) {
+        if (!this.gp.feedbacks) {
+            this.trigger('CallFeedbacksOpenListError', 'not_supported');
+            return;
+        }
+
+        const query = {};
+        if (type) query.type = type;
+        if (status) query.status = status;
+
+        ignoreExpectedPromise(
+            this.gp.feedbacks
+                .open(query)
+                .then(() => {
+                    this.trigger('CallFeedbacksOpenList');
+                    focusGame();
+                })
+                .catch((error) => {
+                    this.trigger('CallFeedbacksOpenListError', errorToString(error));
+                    focusGame();
+                })
+        );
+    }
+
+    FeedbacksOpenFeedback(feedbackId) {
+        if (!this.gp.feedbacks) {
+            this.trigger('CallFeedbacksOpenFeedbackError', 'not_supported');
+            return;
+        }
+
+        ignoreExpectedPromise(
+            this.gp.feedbacks
+                .openFeedback({ feedbackId })
+                .then(() => {
+                    this.trigger('CallFeedbacksOpenFeedback');
+                    focusGame();
+                })
+                .catch((error) => {
+                    this.trigger('CallFeedbacksOpenFeedbackError', errorToString(error));
+                    focusGame();
+                })
+        );
+    }
+
+    FeedbacksFetch(payload) {
+        if (!this.gp.feedbacks) {
+            this.trigger('CallFeedbacksFetchError', 'not_supported');
+            return;
+        }
+
+        const filter = parseJsonPayload(payload, {});
+        const query = { limit: Number(filter.limit || 20) };
+        if (filter.type) query.type = filter.type;
+        if (filter.status) query.status = filter.status;
+
+        ignoreExpectedPromise(
+            this.gp.feedbacks
+                .fetch(query)
+                .then((result) => {
+                    this.trigger(
+                        'CallFeedbacksFetchSuccess',
+                        JSON.stringify({
+                            items: ((result && result.items) || []).map(mapFeedback),
+                            canLoadMore: !!(result && result.canLoadMore)
+                        })
+                    );
+                })
+                .catch((error) => {
+                    this.trigger('CallFeedbacksFetchError', errorToString(error));
+                })
+        );
+    }
+
+    FeedbacksFetchMore(payload) {
+        if (!this.gp.feedbacks) {
+            this.trigger('CallFeedbacksFetchMoreError', 'not_supported');
+            return;
+        }
+
+        const filter = parseJsonPayload(payload, {});
+        const query = { limit: Number(filter.limit || 20) };
+        if (filter.type) query.type = filter.type;
+        if (filter.status) query.status = filter.status;
+
+        ignoreExpectedPromise(
+            this.gp.feedbacks
+                .fetchMore(query)
+                .then((result) => {
+                    this.trigger(
+                        'CallFeedbacksFetchMoreSuccess',
+                        JSON.stringify({
+                            items: ((result && result.items) || []).map(mapFeedback),
+                            canLoadMore: !!(result && result.canLoadMore)
+                        })
+                    );
+                })
+                .catch((error) => {
+                    this.trigger('CallFeedbacksFetchMoreError', errorToString(error));
+                })
+        );
+    }
+
+    FeedbacksSendMessage(payload) {
+        if (!this.gp.feedbacks) {
+            this.trigger('CallFeedbacksSendMessageError', 'not_supported');
+            return;
+        }
+
+        const data = parseJsonPayload(payload, {});
+        ignoreExpectedPromise(
+            this.gp.feedbacks
+                .sendMessage({
+                    feedbackId: data.feedbackId,
+                    text: data.text,
+                    files: data.files || []
+                })
+                .then((message) => {
+                    this.trigger(
+                        'CallFeedbacksSendMessage',
+                        JSON.stringify(mapFeedbackMessage(message))
+                    );
+                })
+                .catch((error) => {
+                    this.trigger('CallFeedbacksSendMessageError', errorToString(error));
+                })
+        );
+    }
+    // Feedbacks
+
+    // Reactions
+    ReactionsSet(entityType, entityId, reactionType) {
+        if (!this.gp.reactions) {
+            this.trigger('CallReactionsSetError', 'not_supported');
+            return;
+        }
+
+        ignoreExpectedPromise(
+            this.gp.reactions
+                .set({ entityType, entityId, reactionType })
+                .then((result) => {
+                    this.trigger(
+                        'CallReactionsSet',
+                        JSON.stringify(mapReactionResult({ entityType, entityId, reactionType, ...(result || {}) }))
+                    );
+                })
+                .catch((error) => {
+                    this.trigger('CallReactionsSetError', errorToString(error));
+                })
+        );
+    }
+
+    ReactionsUnset(entityType, entityId, reactionType) {
+        if (!this.gp.reactions) {
+            this.trigger('CallReactionsUnsetError', 'not_supported');
+            return;
+        }
+
+        ignoreExpectedPromise(
+            this.gp.reactions
+                .unset({ entityType, entityId, reactionType })
+                .then((result) => {
+                    this.trigger(
+                        'CallReactionsUnset',
+                        JSON.stringify(mapReactionResult({ entityType, entityId, reactionType, ...(result || {}) }))
+                    );
+                })
+                .catch((error) => {
+                    this.trigger('CallReactionsUnsetError', errorToString(error));
+                })
+        );
+    }
+    // Reactions
+
     //Windows
     
     WindowsShowConfirmDefault(){
         this.gp.windows.showConfirm({})
             .then((result) => {
             this.trigger('CallWindowsShowConfirm', JSON.stringify(result));
-        });
+        })
+            .catch((error) => {
+                if (!isExpectedUserCancel(error)) {
+                    console.warn(error);
+                }
+                this.trigger('CallWindowsShowConfirm', 'false');
+            });
     }
     
-    WindowsShowConfirm(title, description, textConfirm, textCancel, invertButtonColors) {
-        invertButtonColors = this.getBoolean(invertButtonColors)
-        
-        console.log("Data: " 
-            + "\n " + title 
-            + "\n " + description 
-            + "\n " + textConfirm 
-            + "\n " + textCancel 
-            + "\n " + invertButtonColors);
-        
+    WindowsShowConfirm(title, description, textConfirm, textCancel, invertButtonColors, hideCancelButton) {
+        invertButtonColors = this.getBoolean(invertButtonColors);
+        hideCancelButton = this.getBoolean(hideCancelButton);
+
         this.gp.windows.showConfirm({
             title,
             description,
             textConfirm,
             textCancel,
-            invertButtonColors
+            invertButtonColors,
+            hideCancelButton
         })
             .then((result) => {
                 this.trigger('CallWindowsShowConfirm', JSON.stringify(result));
+            })
+            .catch((error) => {
+                if (!isExpectedUserCancel(error)) {
+                    console.warn(error);
+                }
+                this.trigger('CallWindowsShowConfirm', 'false');
             });
     }
     //Windows
@@ -3099,6 +3544,366 @@ function mapMultiplayerToObject(value) {
         result[String(key)] = item;
     });
     return result;
+}
+
+function mapMultiplayerStateEntries(value) {
+    const entries = [];
+    if (value instanceof Map) {
+        value.forEach((state, playerId) => entries.push({
+            playerId: String(playerId),
+            state: JSON.stringify(state || {})
+        }));
+    } else if (value && typeof value === 'object') {
+        Object.keys(value).forEach((playerId) => entries.push({
+            playerId: String(playerId),
+            state: JSON.stringify(value[playerId] || {})
+        }));
+    }
+    entries.sort((a, b) => a.playerId.localeCompare(b.playerId));
+    return { players: entries };
+}
+
+// Unity transports module state as JSON text, while GamePush global state must stay
+// structured so its state manager can calculate field/array deltas. Leaving payload as
+// a string makes every 10 Hz update a full snapshot and can exceed Centrifugo's frame
+// budget once the world contains enough rigid bodies.
+function normalizeMultiplayerGlobalState(value) {
+    if (!value || typeof value !== 'object' || typeof value.payload !== 'string') {
+        return value;
+    }
+
+    const moduleState = parseMultiplayerJson(value.payload, {});
+    if (
+        moduleState &&
+        typeof moduleState === 'object' &&
+        typeof moduleState.payload === 'string'
+    ) {
+        moduleState.payload = normalizePVZGlobalState(
+            parseMultiplayerJson(moduleState.payload, {})
+        );
+    }
+
+    return {
+        ...value,
+        payload: moduleState
+    };
+}
+
+// Preserve the existing C# wire contract on the way back across the WebGL boundary.
+// GamePush keeps payload as an object internally; Unity's module router expects JSON text.
+function serializeMultiplayerGlobalState(value) {
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+
+    let moduleState = value.payload;
+    if (moduleState && typeof moduleState === 'object') {
+        moduleState = {
+            ...moduleState,
+            payload: typeof moduleState.payload === 'string'
+                ? moduleState.payload
+                : JSON.stringify(serializePVZGlobalState(moduleState.payload || {}))
+        };
+    }
+
+    return {
+        ...value,
+        payload: typeof moduleState === 'string'
+            ? moduleState
+            : JSON.stringify(moduleState || {})
+    };
+}
+
+// GamePush calculates object deltas recursively, but treats an array as one value. PVZ sends
+// sorted arrays to keep its C# DTO deterministic; indexing those arrays by stable network id
+// inside the SDK means a moving body changes only that body's fields instead of retransmitting
+// every body. The conversion is reversed before Unity sees globalStateUpdated.
+function normalizePVZGlobalState(state) {
+    if (!state || typeof state !== 'object' || Number(state.schemaVersion) !== 3) {
+        return state;
+    }
+
+    const compact = {
+        z: 3,
+        e: Number(state.authorityEpoch || 0),
+        r: Number(state.revision || 0),
+        p: Number(state.phase || 0),
+        t: Number(state.elapsedSeconds || 0),
+        f: Number(state.phaseSeconds || 0),
+        c: Number(state.cash || 0),
+        y: Number(state.revenue || 0),
+        d: Number(state.damagePenalty || 0),
+        l: Number(state.lostCustomers || 0),
+        u: multiplayerArrayToCompactRecord(state.customers, 'id', item => [
+            ...multiplayerVector3ToArray(multiplayerPick(item, 'position', 'Position')),
+            Number(multiplayerPick(item, 'yaw', 'Yaw', 0) || 0),
+            Number(multiplayerPick(item, 'stage', 'Stage', 0) || 0),
+            Number(multiplayerPick(item, 'mood', 'Mood', 0) || 0),
+            Number(multiplayerPick(item, 'waitSeconds', 'WaitSeconds', 0) || 0)
+        ]),
+        a: multiplayerArrayToCompactRecord(state.parcels, 'id', item => [
+            Number(multiplayerPick(item, 'lifecycle', 'Lifecycle', 0) || 0),
+            multiplayerPick(item, 'shelfAddress', 'ShelfAddress', '') || '',
+            multiplayerPick(item, 'orderId', 'OrderId', '') || '',
+            Number(multiplayerPick(item, 'integrity', 'Integrity', 0) || 0),
+            !!multiplayerPick(item, 'opened', 'Opened', false)
+        ]),
+        b: multiplayerArrayToCompactRecord(state.bodies, 'Id', item => [
+            ...multiplayerVector3ToArray(multiplayerPick(item, 'Position', 'position')),
+            ...multiplayerQuaternionToArray(multiplayerPick(item, 'Rotation', 'rotation')),
+            ...multiplayerVector3ToArray(multiplayerPick(item, 'Velocity', 'velocity')),
+            ...multiplayerVector3ToArray(multiplayerPick(item, 'AngularVelocity', 'angularVelocity')),
+            !!multiplayerPick(item, 'Sleeping', 'sleeping', false)
+        ]),
+        h: multiplayerArrayToCompactRecord(state.carries, 'peerId', item => ({
+            h: Array.isArray(item.heldIds) ? item.heldIds.slice() : [],
+            i: compactCarryItems(item.items),
+            v: Number(item.revision || 0)
+        }))
+    };
+    if (Array.isArray(state.orders)) {
+        compact.o = multiplayerArrayToCompactRecord(state.orders, 'Id', item => [
+            multiplayerPick(item, 'CustomerId', 'customerId', '') || '',
+            Array.isArray(item.ParcelIds) ? item.ParcelIds.slice()
+                : (Array.isArray(item.parcelIds) ? item.parcelIds.slice() : []),
+            Array.isArray(item.ScannedParcelIds) ? item.ScannedParcelIds.slice()
+                : (Array.isArray(item.scannedParcelIds) ? item.scannedParcelIds.slice() : []),
+            Number(multiplayerPick(item, 'Status', 'status', 0) || 0),
+            Number(multiplayerPick(item, 'CreatedDay', 'createdDay', 0) || 0),
+            Number(multiplayerPick(item, 'Reward', 'reward', 0) || 0)
+        ]);
+    }
+    if (Array.isArray(state.trash)) {
+        compact.k = multiplayerArrayToCompactRecord(state.trash, 'Id', item => [
+            Number(multiplayerPick(item, 'Kind', 'kind', 0) || 0),
+            ...multiplayerVector3ToArray(multiplayerPick(item, 'Position', 'position')),
+            !!multiplayerPick(item, 'Cleaned', 'cleaned', false)
+        ]);
+    }
+    if (Array.isArray(state.stains)) {
+        compact.s = multiplayerArrayToCompactRecord(state.stains, 'Id', item => [
+            ...multiplayerVector3ToArray(multiplayerPick(item, 'Position', 'position')),
+            Number(multiplayerPick(item, 'Remaining', 'remaining', 0) || 0)
+        ]);
+    }
+    if (Array.isArray(state.upgrades)) {
+        compact.g = multiplayerArrayToCompactRecord(state.upgrades, 'Id', item => [
+            Number(multiplayerPick(item, 'Level', 'level', 0) || 0)
+        ]);
+    }
+    if (Array.isArray(state.interactables)) {
+        compact.n = multiplayerArrayToCompactRecord(state.interactables, 'id', item => [
+            multiplayerPick(item, 'kind', 'Kind', '') || '',
+            multiplayerPick(item, 'payload', 'Payload', '') || ''
+        ]);
+    }
+    return compact;
+}
+
+function serializePVZGlobalState(state) {
+    if (!state || typeof state !== 'object') {
+        return state;
+    }
+    if (Number(state.schemaVersion) === 3) return state;
+    if (Number(state.z) !== 3) return state;
+
+    const result = {
+        schemaVersion: 3,
+        authorityEpoch: Number(state.e || 0),
+        revision: Number(state.r || 0),
+        phase: Number(state.p || 0),
+        elapsedSeconds: Number(state.t || 0),
+        phaseSeconds: Number(state.f || 0),
+        cash: Number(state.c || 0),
+        revenue: Number(state.y || 0),
+        damagePenalty: Number(state.d || 0),
+        lostCustomers: Number(state.l || 0),
+        customers: multiplayerCompactRecordToArray(state.u, (id, item) => ({
+            id,
+            position: multiplayerArrayToVector3(item, 0),
+            yaw: Number(item[3] || 0),
+            stage: Number(item[4] || 0),
+            mood: Number(item[5] || 0),
+            waitSeconds: Number(item[6] || 0)
+        })),
+        parcels: multiplayerCompactRecordToArray(state.a, (id, item) => ({
+            id,
+            lifecycle: Number(item[0] || 0),
+            shelfAddress: item[1] || '',
+            orderId: item[2] || '',
+            integrity: Number(item[3] || 0),
+            opened: !!item[4]
+        })),
+        bodies: multiplayerCompactRecordToArray(state.b, (Id, item) => ({
+            Id,
+            Position: multiplayerArrayToVector3(item, 0),
+            Rotation: multiplayerArrayToQuaternion(item, 3),
+            Velocity: multiplayerArrayToVector3(item, 7),
+            AngularVelocity: multiplayerArrayToVector3(item, 10),
+            Sleeping: !!item[13],
+            Revision: Number(state.r || 0)
+        })),
+        carries: multiplayerCompactRecordToArray(state.h, (peerId, item) => {
+            if (Array.isArray(item)) {
+                return { peerId, heldIds: item.slice(), items: [] };
+            }
+            return {
+                peerId,
+                heldIds: item && Array.isArray(item.h) ? item.h.slice() : [],
+                items: expandCarryItems(item && item.i),
+                revision: Number(item && item.v || 0)
+            };
+        })
+    };
+    if (state.o) {
+        result.orders = multiplayerCompactRecordToArray(state.o, (Id, item) => ({
+            Id,
+            CustomerId: item[0] || '',
+            ParcelIds: Array.isArray(item[1]) ? item[1] : [],
+            ScannedParcelIds: Array.isArray(item[2]) ? item[2] : [],
+            Status: Number(item[3] || 0),
+            CreatedDay: Number(item[4] || 0),
+            Reward: Number(item[5] || 0)
+        }));
+    }
+    if (state.k) {
+        result.trash = multiplayerCompactRecordToArray(state.k, (Id, item) => ({
+            Id,
+            Kind: Number(item[0] || 0),
+            Position: multiplayerArrayToVector3(item, 1),
+            Cleaned: !!item[4]
+        }));
+    }
+    if (state.s) {
+        result.stains = multiplayerCompactRecordToArray(state.s, (Id, item) => ({
+            Id,
+            Position: multiplayerArrayToVector3(item, 0),
+            Remaining: Number(item[3] || 0)
+        }));
+    }
+    if (state.g) {
+        result.upgrades = multiplayerCompactRecordToArray(state.g, (Id, item) => ({
+            Id,
+            Level: Number(item[0] || 0)
+        }));
+    }
+    if (state.n) {
+        result.interactables = multiplayerCompactRecordToArray(state.n, (id, item) => ({
+            id,
+            kind: item[0] || '',
+            payload: item[1] || ''
+        }));
+    }
+    return result;
+}
+
+function multiplayerPick(item, camel, pascal, fallback) {
+    if (!item || typeof item !== 'object') return fallback;
+    if (item[camel] !== undefined && item[camel] !== null) return item[camel];
+    if (pascal && item[pascal] !== undefined && item[pascal] !== null) return item[pascal];
+    return fallback;
+}
+
+function multiplayerIdKey(item, key, index) {
+    if (!item || typeof item !== 'object') return `#${index}`;
+    let raw = item[key];
+    if (raw === undefined || raw === null || raw === '') {
+        const alt = key === key.toLowerCase()
+            ? key.charAt(0).toUpperCase() + key.slice(1)
+            : key.charAt(0).toLowerCase() + key.slice(1);
+        raw = item[alt];
+    }
+    if (raw === undefined || raw === null || raw === '') return `#${index}`;
+    return String(raw);
+}
+
+function compactCarryItems(items) {
+    if (!Array.isArray(items)) return [];
+    return items.filter(item => item && item.itemId).map(item => [
+        item.itemId,
+        Number(item.slot || 0),
+        ...multiplayerVector3ToArray(item.localPosition),
+        ...multiplayerVector3ToArray(item.localEuler)
+    ]);
+}
+
+function expandCarryItems(value) {
+    if (!Array.isArray(value)) return [];
+    return value.map(item => {
+        if (!Array.isArray(item)) return null;
+        return {
+            itemId: item[0] || '',
+            slot: Number(item[1] || 0),
+            localPosition: multiplayerArrayToVector3(item, 2),
+            localEuler: multiplayerArrayToVector3(item, 5)
+        };
+    }).filter(Boolean);
+}
+
+function multiplayerArrayToCompactRecord(items, key, compact) {
+    const record = {};
+    if (!Array.isArray(items)) return record;
+    items.forEach((item, index) => {
+        if (!item || typeof item !== 'object') return;
+        record[multiplayerIdKey(item, key, index)] = compact(item);
+    });
+    return record;
+}
+
+function multiplayerCompactRecordToArray(value, expand) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    return Object.keys(value).sort((a, b) => a.localeCompare(b))
+        .map(id => expand(id, Array.isArray(value[id]) ? value[id] : []));
+}
+
+function multiplayerVector3ToArray(value) {
+    value = value || {};
+    return [Number(value.x || 0), Number(value.y || 0), Number(value.z || 0)];
+}
+
+function multiplayerQuaternionToArray(value) {
+    value = value || {};
+    return [
+        Number(value.x || 0), Number(value.y || 0), Number(value.z || 0),
+        typeof value.w === 'number' ? value.w : 1
+    ];
+}
+
+function multiplayerArrayToVector3(value, offset) {
+    value = Array.isArray(value) ? value : [];
+    return {
+        x: Number(value[offset] || 0),
+        y: Number(value[offset + 1] || 0),
+        z: Number(value[offset + 2] || 0)
+    };
+}
+
+function multiplayerArrayToQuaternion(value, offset) {
+    value = Array.isArray(value) ? value : [];
+    return {
+        x: Number(value[offset] || 0),
+        y: Number(value[offset + 1] || 0),
+        z: Number(value[offset + 2] || 0),
+        w: typeof value[offset + 3] === 'number' ? value[offset + 3] : 1
+    };
+}
+
+function normalizeMultiplayerEvent(event) {
+    event = event || {};
+    return {
+        eventName: event.eventName || '',
+        senderId: String(typeof event.senderId === 'undefined' ? '' : event.senderId),
+        data: JSON.stringify(typeof event.data === 'undefined' ? null : event.data),
+        timestamp: Number(event.timestamp || 0)
+    };
+}
+
+function wrapMultiplayerOperation(generation, value) {
+    return JSON.stringify({
+        wrapped: true,
+        generation: Number(generation || 0),
+        data: JSON.stringify(typeof value === 'undefined' ? null : value)
+    });
 }
 
 function normalizeMultiplayerSendOptions(options) {

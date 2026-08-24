@@ -11,6 +11,16 @@ namespace GamePush
     public class GP_Channels : GP_Module
     {
         private static void ConsoleLog(string log) => GP_Logger.ModuleLog(log, ModuleName.Channels);
+
+        private static void SetCaptureAllKeyboardInput(bool value)
+        {
+#if !UNITY_EDITOR && UNITY_WEBGL
+            var webGLInputType = Type.GetType("UnityEngine.WebGLInput, UnityEngine.WebGLModule");
+            var captureProperty = webGLInputType?.GetProperty("captureAllKeyboardInput");
+            captureProperty?.SetValue(null, value);
+#endif
+        }
+
         #region Actions
 
         public static event UnityAction<CreateChannelData> OnCreateChannel;
@@ -213,7 +223,7 @@ namespace GamePush
             _onOpenChatError = onOpenError;
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Channels_OpenChat(-10);
-            WebGLInput.captureAllKeyboardInput = false;
+            SetCaptureAllKeyboardInput(false);
 #else
 
             ConsoleLog("OPEN CHAT");
@@ -748,6 +758,21 @@ namespace GamePush
 #endif
         }
 
+        /// <summary>
+        /// Sends a partial channel update without JsonUtility serializing every field from
+        /// <see cref="UpdateChannelFilter"/> with its default value. This is required for
+        /// updates such as ownership migration, where sending capacity=0 and visible=false
+        /// would otherwise erase the existing channel metadata.
+        /// </summary>
+        public static void UpdateChannel(GP_Data filter)
+        {
+#if !UNITY_EDITOR && UNITY_WEBGL
+            GP_Channels_UpdateChannel(filter?.Data ?? "{}");
+#else
+            ConsoleLog("UPDATE CHANNEL");
+#endif
+        }
+
         [DllImport("__Internal")]
         private static extern void GP_Channels_FetchChannels(string filter);
         public static void FetchChannels(FetchChannelsFilter filter)
@@ -802,7 +827,7 @@ namespace GamePush
         private void CallOnCloseChat()
         {
 #if !UNITY_EDITOR && UNITY_WEBGL
-            WebGLInput.captureAllKeyboardInput = true;
+            SetCaptureAllKeyboardInput(true);
 #endif
             OnCloseChat?.Invoke();
             _onCloseChat?.Invoke();
@@ -1291,6 +1316,9 @@ namespace GamePush
         public bool canKickPlayer = true;
         public bool canAcceptJoinRequest = true;
         public bool canMutePlayer = true;
+        public bool canSetValue = true;
+        public bool canAddValue = true;
+        public bool canSubtractValue = true;
     }
 
     [System.Serializable]
@@ -1305,6 +1333,9 @@ namespace GamePush
         public bool canKickPlayer = false;
         public bool canAcceptJoinRequest = false;
         public bool canMutePlayer = false;
+        public bool canSetValue = false;
+        public bool canAddValue = false;
+        public bool canSubtractValue = false;
     }
 
     [System.Serializable]
@@ -1319,5 +1350,8 @@ namespace GamePush
         public bool canKickPlayer = false;
         public bool canAcceptJoinRequest = false;
         public bool canMutePlayer = false;
+        public bool canSetValue = false;
+        public bool canAddValue = false;
+        public bool canSubtractValue = false;
     }
 }

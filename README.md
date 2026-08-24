@@ -23,6 +23,8 @@ GamePush Web Template:
 
 [English](https://docs.gamepush.com/tutorials/adding-plugin-to-a-unity-project/) and [Russian](https://docs.gamepush.com/ru/tutorials/adding-plugin-to-a-unity-project/) tutorials
 
+In the Unity editor, `Tools/GamePush` has three tabs: **Main**, **Platform emulator**, and **In-apps**. Ads and payments can be stubbed in Play Mode so platform flows can be tested without a WebGL export. Product catalogs can be loaded with an account API key (stored in EditorPrefs) or imported from a JSON/CSV export.
+
 ## Documentation:
 
 ### English:
@@ -43,11 +45,13 @@ https://docs.gamepush.com/ru/docs/get-start/
 | [GP_App](#GP_App)                             |
 | [GP_AvatarGenerator](#GP_AvatarGenerator)     |
 | [GP_Channels](#GP_Channels)                   |
+| [GP_CoolMath](#GP_CoolMath)                   |
 | [GP_Custom](#GP_Custom)                       |
 | [GP_Device](#GP_Device)                       |
 | [GP_Documents](#GP_Documents)                 |
 | [GP_Events](#GP_Events)                       |
 | [GP_Experiments](#GP_Experiments)             |
+| [GP_Feedbacks](#GP_Feedbacks)                 |
 | [GP_Fullscreen](#GP_Fullscreen)               |
 | [GP_Game](#GP_Game)                           |
 | [GP_GamesCollections](#GP_GamesCollections)   |
@@ -59,6 +63,7 @@ https://docs.gamepush.com/ru/docs/get-start/
 | [GP_Platform](#GP_Platform)                   |
 | [GP_Player](#GP_Player)                       |
 | [GP_Players](#GP_Players)                     |
+| [GP_Reactions](#GP_Reactions)                 |
 | [GP_Rewards](#GP_Rewards)                     |
 | [GP_Schedulers](#GP_Schedulers)               |
 | [GP_Segments](#GP_Segments)                   |
@@ -311,6 +316,7 @@ public enum GeneratorType : byte
 | `FetchChannel`              | `int channel_ID`                                                                                      | void         |
 | `CreateChannel`             | `CreateChannelFilter filter`                                                                          | void         |
 | `UpdateChannel`             | `UpdateChannelFilter filter`                                                                          | void         |
+| `UpdateChannel`             | `GP_Data filter`                                                                                      | void         |
 | `FetchChannels`             | `FetchChannelsFilter filter`                                                                          | void         |
 | `FetchMoreChannels`         | `FetchMoreChannelsFilter filter`                                                                      | void         |
 | `FetchMembers`              | `FetchMembersFilter filter`                                                                           | void         |
@@ -701,6 +707,9 @@ public class OwnerAcl
     public bool canKickPlayer = true;
     public bool canAcceptJoinRequest = true;
     public bool canMutePlayer = true;
+    public bool canSetValue = true;
+    public bool canAddValue = true;
+    public bool canSubtractValue = true;
 }
 ```
 
@@ -716,6 +725,9 @@ public class MemberAcl
     public bool canKickPlayer = false;
     public bool canAcceptJoinRequest = false;
     public bool canMutePlayer = false;
+    public bool canSetValue = false;
+    public bool canAddValue = false;
+    public bool canSubtractValue = false;
 }
 ```
 
@@ -731,8 +743,23 @@ public class GuestAcl
     public bool canKickPlayer = false;
     public bool canAcceptJoinRequest = false;
     public bool canMutePlayer = false;
+    public bool canSetValue = false;
+    public bool canAddValue = false;
+    public bool canSubtractValue = false;
 }
 ```
+
+## GP_CoolMath
+
+CoolMath Games events for store moderation. `GameReady` is still `GP_Game.GameReady`. Calls are ignored on other platforms.
+
+### Methods
+
+| Method name   | Method parameters | Return value |
+| ------------- | ----------------- | ------------ |
+| `PlayClicked` | void              | void         |
+| `LevelStart`  | `int level`       | void         |
+| `LevelReplay` | `int level`       | void         |
 
 ## GP_Custom
 
@@ -859,6 +886,44 @@ public class EventStats
 | `Map`       | void                        | `string`     |
 | `Has`       | `string tag, string cohort` | `bool`       |
 
+## GP_Feedbacks
+
+[Feedbacks documentation](https://docs.gamepush.com/docs/feedbacks/)
+
+### Methods
+
+| Method name     | Method parameters                                                                                                             | Return value |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `Send`          | `FeedbackData data, Action<FeedbackData> onSend = null, Action<string> onSendError = null`                                    | void         |
+| `Open`          | `Action onOpen = null, Action<string> onError = null`                                                                         | void         |
+| `Open`          | `string type, string status, Action onOpen = null, Action<string> onError = null`                                             | void         |
+| `OpenFeedback`  | `string feedbackId, Action onOpen = null, Action<string> onError = null`                                                      | void         |
+| `Fetch`         | `Action<FeedbackData[]> onSuccess = null, Action<string> onError = null`                                                      | void         |
+| `Fetch`         | `string type, string status, int limit, Action<FeedbackData[]> onSuccess = null, Action<string> onError = null`               | void         |
+| `FetchMore`     | `int limit = 20, string type = null, string status = null, Action<FeedbackData[]> onSuccess = null, Action<string> onError = null` | void         |
+| `SendMessage`   | `FeedbackMessageData data, Action<FeedbackMessageData> onSend = null, Action<string> onError = null`                          | void         |
+
+### Actions
+
+| Action name                       | Return value                 |
+| --------------------------------- | ---------------------------- |
+| `OnSend`                          | `FeedbackData`               |
+| `OnSendError`                     | `string`                     |
+| `OnOpenList`                      | void                         |
+| `OnOpenListError`                 | `string`                     |
+| `OnOpenFeedback`                  | void                         |
+| `OnOpenFeedbackError`             | `string`                     |
+| `OnFetch`                         | `FeedbackData[], bool`       |
+| `OnFetchError`                    | `string`                     |
+| `OnFetchMore`                     | `FeedbackData[], bool`       |
+| `OnFetchMoreError`                | `string`                     |
+| `OnSendMessage`                   | `FeedbackMessageData`        |
+| `OnSendMessageError`              | `string`                     |
+| `OnFeedbackMessage`               | `FeedbackMessageData`        |
+| `OnFeedbackCreated`               | `FeedbackData`               |
+| `OnFeedbackStatusUpdated`         | `FeedbackData`               |
+| `OnFeedbackPlatformStatusUpdated` | `FeedbackData`               |
+
 ## GP_Files
 
 [Files documentation](https://docs.gamepush.com/docs/files/)
@@ -907,6 +972,8 @@ public class FileData
     public string src;
     public float size;
     public string[] tags;
+    public ReactionCount[] reactions;
+    public PlayerReaction[] playerReactions;
 }
 ```
 
@@ -1061,6 +1128,8 @@ public class ImageData
     public string[] tags;
     public int width;
     public int height;
+    public ReactionCount[] reactions;
+    public PlayerReaction[] playerReactions;
 }
 ```
 
@@ -1209,15 +1278,19 @@ public enum WithMe : byte
 
 ### Methods
 
-| Method name                | Method parameters                                                                              | Return value |
-| -------------------------- | ---------------------------------------------------------------------------------------------- | ------------ |
-| `Fetch`                    | void                                                                                           | void         |
-| `Purchase`                 | `string idOrTag, Action<string> onPurchaseSuccess = null, Action onPurchaseError = null`       | void         |
-| `Consume`                  | `string idOrTag, Action<string> onConsumeSuccess = null, Action onConsumeError = null`         | void         |
-| `IsPaymentsAvailable`      | void                                                                                           | `bool`       |
-| `IsSubscriptionsAvailable` | void                                                                                           | `bool`       |
-| `Subscribe`                | `string idOrTag, Action<string> onSubscribeSuccess = null, Action onSubscribeError = null`     | void         |
-| `Unsubscribe`              | `string idOrTag, Action<string> onUnsubscribeSuccess = null, Action onUnsubscribeError = null` | void         |
+| Method name                | Method parameters                                                                              | Return value                   |
+| -------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------ |
+| `Fetch`                    | `Action<List<FetchProducts>> onFetchProducts = null, Action onFetchProductsError = null, Action<List<FetchPlayerPurchases>> onFetchPlayerPurchases = null` | void                           |
+| `GetProducts`              | void                                                                                           | `List<FetchProducts>`          |
+| `GetPurchases`             | void                                                                                           | `List<FetchPlayerPurchases>`   |
+| `Has`                      | `string idOrTag`                                                                               | `bool`                         |
+| `Open`                     | `Action onOpen = null, Action onClose = null`                                                  | void                           |
+| `Purchase`                 | `string idOrTag, Action<string> onPurchaseSuccess = null, Action onPurchaseError = null`       | void                           |
+| `Consume`                  | `string idOrTag, Action<string> onConsumeSuccess = null, Action onConsumeError = null`         | void                           |
+| `IsPaymentsAvailable`      | void                                                                                           | `bool`                         |
+| `IsSubscriptionsAvailable` | void                                                                                           | `bool`                         |
+| `Subscribe`                | `string idOrTag, Action<string> onSubscribeSuccess = null, Action onSubscribeError = null`     | void                           |
+| `Unsubscribe`              | `string idOrTag, Action<string> onUnsubscribeSuccess = null, Action onUnsubscribeError = null` | void                           |
 
 ### Actions
 
@@ -1234,6 +1307,8 @@ public enum WithMe : byte
 | `OnSubscribeError`       | void                         |
 | `OnUnsubscribeSuccess`   | `string`                     |
 | `OnUnsubscribeError`     | void                         |
+| `OnOpen`                 | void                         |
+| `OnClose`                | void                         |
 
 ### Data structures
 
@@ -1432,6 +1507,40 @@ public class PlayerFieldVariant
 | ---------------- | ------------ |
 | `OnFetchSuccess` | `GP_Data`    |
 | `OnFetchError`   | void         |
+
+## GP_Reactions
+
+[Reactions documentation](https://docs.gamepush.com/docs/reactions/)
+
+### Methods
+
+| Method name | Method parameters                                                                                           | Return value |
+| ----------- | ----------------------------------------------------------------------------------------------------------- | ------------ |
+| `Set`       | `string entityType, string entityId, string reactionType, Action<ReactionResult> onSet = null, Action<string> onError = null` | void         |
+| `Unset`     | `string entityType, string entityId, string reactionType, Action<ReactionResult> onUnset = null, Action<string> onError = null` | void         |
+
+### Actions
+
+| Action name           | Return value      |
+| --------------------- | ----------------- |
+| `OnSet`               | `ReactionResult`  |
+| `OnSetError`          | `string`          |
+| `OnUnset`             | `ReactionResult`  |
+| `OnUnsetError`        | `string`          |
+| `OnReactionSetEvent`  | `ReactionResult`  |
+| `OnReactionUnsetEvent`| `ReactionResult`  |
+
+### Data structures
+
+```c
+public class ReactionResult
+{
+    public string entityType;
+    public string entityId;
+    public string reactionType;
+    public int counter;
+}
+```
 
 ## GP_Rewards
 

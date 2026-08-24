@@ -14,6 +14,7 @@
     const progressBarBackgroundColor = "{{{ PROGRESS_BAR_BACKGROUND_COLOR.replace(/ /g, '') }}}";
     const progressBarBorderColor = "{{{ PROGRESS_BAR_BORDER_COLOR.replace(/ /g, '') }}}";
     const backgroundFileName = "{{{ BACKGROUND_IMAGE_FILE.replace(/ /g, '') }}}";
+
   </script>
 
 <style>
@@ -38,6 +39,25 @@
       /* Ставим высоту на 100% */
       height: 100%;
   }
+
+  #unity-error-overlay {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      z-index: 10000;
+      display: none;
+      max-height: 42vh;
+      overflow: auto;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 120, 120, 0.8);
+      border-radius: 8px;
+      color: #fff;
+      background: rgba(55, 8, 8, 0.94);
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: pre-wrap;
+      pointer-events: none;
+  }
 </style>
 
 </head>
@@ -55,6 +75,7 @@
       <div class="spinner"></div>
     </div>
   </div>
+  <pre id="unity-error-overlay" role="alert" aria-live="assertive"></pre>
 
   <script>
     const buildUrl = "Build";
@@ -82,6 +103,75 @@
     const progressBarEmpty = document.querySelector("#unity-progress-bar-empty");
     const progressBarFull = document.querySelector("#unity-progress-bar-full");
     const spinner = document.querySelector('.spinner');
+    const errorOverlay = document.querySelector('#unity-error-overlay');
+    let errorOverlayShown = false;
+
+    // Chromium may reject pointer lock while the canvas is being reparented between the
+    // loading document and Unity's active document. This is non-fatal and must not become the
+    // browser's blocking "Unity content" alert; all other errors continue to the overlay.
+    const requestPointerLock = canvas.requestPointerLock
+      ? canvas.requestPointerLock.bind(canvas)
+      : null;
+    if (requestPointerLock) {
+      canvas.requestPointerLock = (...args) => {
+        const isTransientDocumentError = (error) =>
+          error && (error.name === 'WrongDocumentError' ||
+            String(error).includes('root document of this element'));
+        try {
+          const result = requestPointerLock(...args);
+          return result && typeof result.catch === 'function'
+            ? result.catch((error) => {
+                if (isTransientDocumentError(error)) {
+                  console.warn('[Unity WebGL] Pointer lock deferred until the next gesture');
+                  return;
+                }
+                throw error;
+              })
+            : result;
+        } catch (error) {
+          if (isTransientDocumentError(error)) {
+            console.warn('[Unity WebGL] Pointer lock deferred until the next gesture');
+            return;
+          }
+          throw error;
+        }
+      };
+    }
+
+    function isExpectedUserCancel(error) {
+      const message = (error && (error.message || error.code || error) || '').toString().toLowerCase();
+      return /cancel|cancelled|canceled|payment_rejected|rejected/.test(message);
+    }
+
+    function showUnityError(error) {
+      if (isExpectedUserCancel(error)) {
+        console.warn('[Unity WebGL] ignored expected cancel', error);
+        return;
+      }
+      const stack = error && error.stack ? error.stack : String(error || 'Unknown Unity error');
+      console.error('[Unity WebGL]', error);
+      if (errorOverlayShown) return;
+      errorOverlayShown = true;
+      errorOverlay.textContent = 'Unity WebGL error\n\n' + stack;
+      errorOverlay.style.display = 'block';
+    }
+
+    window.addEventListener('error', (event) => {
+      if (isExpectedUserCancel(event.error || event.message)) {
+        event.preventDefault();
+        return;
+      }
+      showUnityError(event.error || event.message);
+      event.preventDefault();
+    });
+    window.addEventListener('unhandledrejection', (event) => {
+      if (isExpectedUserCancel(event.reason)) {
+        event.preventDefault();
+        return;
+      }
+      showUnityError(event.reason);
+      event.preventDefault();
+    });
 
     if (overlayBackgroundColor !== " " && overlayBackgroundColor !== ""){
       canvas.style.background = overlayBackgroundColor;
@@ -140,7 +230,7 @@
         window.unityInstance = unityInstance;
         loadingCover.style.display = "none";
       }).catch((message) => {
-        alert(message);
+        showUnityError(message);
       });
     };
     document.body.appendChild(unityLoader);
