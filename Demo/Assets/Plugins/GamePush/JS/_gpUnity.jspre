@@ -1009,6 +1009,9 @@ class GamePushUnityInner {
     AvatarGenerator() {
         return this.gp.avatarGenerator;
     }
+    GenerateAvatar(hash, size) {
+        return this.gp.generateAvatar(hash, size);
+    }
 
     PlatformType() {
         return this.gp.platform.type;

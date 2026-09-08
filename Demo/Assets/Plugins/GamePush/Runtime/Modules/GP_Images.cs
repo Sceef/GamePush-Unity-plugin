@@ -159,8 +159,27 @@ namespace GamePush
 
         public static string FormatUrl(string url, string format)
         {
-            string formatUrl = url.Replace(".webp", format);
-            return formatUrl;
+            if (string.IsNullOrEmpty(url) || string.IsNullOrEmpty(format))
+                return url;
+
+            if (!format.StartsWith("."))
+                format = "." + format;
+
+            var suffixStart = url.Length;
+            var query = url.IndexOf('?');
+            var hash = url.IndexOf('#');
+            if (query >= 0)
+                suffixStart = query;
+            if (hash >= 0 && hash < suffixStart)
+                suffixStart = hash;
+
+            const string webp = ".webp";
+            var path = url.Substring(0, suffixStart);
+            if (path.Length < webp.Length ||
+                !path.EndsWith(webp, StringComparison.OrdinalIgnoreCase))
+                return url;
+
+            return path.Substring(0, path.Length - webp.Length) + format + url.Substring(suffixStart);
         }
 
 

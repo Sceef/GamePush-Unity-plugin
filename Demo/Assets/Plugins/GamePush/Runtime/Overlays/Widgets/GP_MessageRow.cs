@@ -65,7 +65,8 @@ namespace GamePush.Overlays.Widgets
             }
 
             if (avatar != null)
-                avatar.Load(message.authorAvatar, skin.avatarPlaceholder);
+                avatar.Load(GP_AvatarGenerator.ResolveUrl(message.authorAvatar, message.authorId),
+                    skin.avatarPlaceholder);
 
             // Own messages hug the right edge, everyone else's the left.
             if (layout != null)

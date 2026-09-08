@@ -11,7 +11,7 @@ query ($lang: Lang) {
       isDev
       isAllowedOrigin
       serverTime
-      config { lang orientation }
+      config { lang orientation avatarGenerator avatarGeneratorTemplate }
       project {
         name(lang: $lang)
         mainChatId

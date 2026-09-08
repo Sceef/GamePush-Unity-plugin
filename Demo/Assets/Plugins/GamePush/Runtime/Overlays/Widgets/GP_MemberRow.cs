@@ -74,7 +74,7 @@ namespace GamePush.Overlays.Widgets
                     isOnline ? GP_OverlayColorRole.Accent : GP_OverlayColorRole.TextMuted);
 
             if (avatar != null)
-                avatar.Load(avatarUrl, skin.avatarPlaceholder);
+                avatar.Load(GP_AvatarGenerator.ResolveUrl(avatarUrl, id), skin.avatarPlaceholder);
 
             Wire(muteButton, canMute, onMute);
             Wire(kickButton, canKick, onKick);

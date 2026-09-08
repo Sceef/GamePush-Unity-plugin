@@ -63,7 +63,8 @@ namespace GamePush.Overlays.Widgets
                 var image = avatar.GetComponent<Image>();
                 if (image != null)
                     image.enabled = true;
-                avatar.Load(entry.avatar, skin.avatarPlaceholder != null ? skin.avatarPlaceholder : skin.circleSprite);
+                avatar.Load(GP_AvatarGenerator.ResolveUrl(entry.avatar, entry.id),
+                    skin.avatarPlaceholder != null ? skin.avatarPlaceholder : skin.circleSprite);
             }
 
             BindValues(fields, key => Value(entry, key), skin.text, false);

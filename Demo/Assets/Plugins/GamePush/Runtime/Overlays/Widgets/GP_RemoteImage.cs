@@ -146,8 +146,8 @@ namespace GamePush.Overlays.Widgets
                 return "";
             url = url.Trim();
             if (url.StartsWith("//"))
-                return "https:" + url;
-            return url;
+                url = "https:" + url;
+            return GP_Images.FormatToPng(url);
         }
 
         static void Store(string url, Sprite sprite)

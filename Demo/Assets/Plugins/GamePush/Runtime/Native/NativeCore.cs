@@ -26,6 +26,8 @@ namespace GamePush.Native
         public static bool MainChatEnabled { get; private set; }
         public static bool ShowAdCountdownOverlay { get; private set; }
         public static bool ShowRewardedFailedOverlay { get; private set; }
+        public static string AvatarGenerator { get; private set; } = "dicebear_retro";
+        public static string AvatarGeneratorTemplate { get; private set; } = "";
         public static NativeAdsConfig Ads { get; } = new NativeAdsConfig();
         public static NativeAuthConfig Auth { get; } = new NativeAuthConfig();
         public static NativePaymentsConfig Payments { get; } = new NativePaymentsConfig();
@@ -67,6 +69,18 @@ namespace GamePush.Native
                 ServerTime = GpJson.TryGetString(result, "serverTime", out var st) ? st : "";
                 IsDev = GpJson.GetBool(result, "isDev");
                 IsAllowedOrigin = GpJson.GetBool(result, "isAllowedOrigin", true);
+
+                var config = GpJson.GetObject(result, "config");
+                if (config != null)
+                {
+                    AvatarGenerator = GpJson.TryGetString(config, "avatarGenerator", out var generator) &&
+                                      !string.IsNullOrEmpty(generator)
+                        ? generator
+                        : "dicebear_retro";
+                    AvatarGeneratorTemplate = GpJson.TryGetString(config, "avatarGeneratorTemplate", out var template)
+                        ? template ?? ""
+                        : "";
+                }
 
                 var project = GpJson.GetObject(result, "project");
                 if (project != null)

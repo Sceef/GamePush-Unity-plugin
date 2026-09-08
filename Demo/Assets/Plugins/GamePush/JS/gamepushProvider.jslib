@@ -55,6 +55,10 @@ mergeInto(LibraryManager.library, {
         var value = _GP().AvatarGenerator();
         return _ToBuff(value);
     },
+    GP_Generate_Avatar: function (hash, size) {
+        var value = _GP().GenerateAvatar(UTF8ToString(hash), size);
+        return _ToBuff(value);
+    },
     /* AVATAR GENERATOR */
 
     /* PLATFORM */
