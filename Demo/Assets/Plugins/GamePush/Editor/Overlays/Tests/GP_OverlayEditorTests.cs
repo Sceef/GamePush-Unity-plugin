@@ -96,6 +96,138 @@ namespace GamePushEditor.Overlays.Tests
         }
 
         [Test]
+        public void MobileSheetFillsPortraitAvailable()
+        {
+            var available = new Vector2(984f, 1824f);
+            var size = GP_OverlayResponsive.CalculatePanelSize(available,
+                new Vector2(360f, 400f), new Vector2(1650f, 1500f), 1.65f, 1.15f,
+                GP_OverlaySizeMode.Sheet);
+
+            Assert.That(size.x, Is.EqualTo(available.x).Within(0.1f));
+            Assert.That(size.y, Is.EqualTo(available.y).Within(0.1f));
+            Assert.That(size.x, Is.LessThanOrEqualTo(available.x));
+        }
+
+        [Test]
+        public void MobileSheetFillsLandscapeHeight()
+        {
+            var available = new Vector2(3000f, 1700f);
+            var size = GP_OverlayResponsive.CalculatePanelSize(available,
+                new Vector2(360f, 400f), new Vector2(1650f, 1500f), 1.65f, 1.15f,
+                GP_OverlaySizeMode.Sheet);
+
+            Assert.That(size.y, Is.EqualTo(available.y).Within(0.1f));
+            Assert.That(size.x, Is.LessThanOrEqualTo(available.x));
+        }
+
+        [Test]
+        public void DialogClampsToNarrowAvailable()
+        {
+            var available = new Vector2(400f, 700f);
+            var size = GP_OverlayResponsive.CalculatePanelSize(available,
+                new Vector2(420f, 260f), new Vector2(820f, 620f), 1.6f, 1.15f,
+                GP_OverlaySizeMode.Dialog);
+
+            Assert.That(size.x, Is.LessThanOrEqualTo(available.x));
+            Assert.That(size.y, Is.LessThanOrEqualTo(available.y));
+        }
+
+        [Test]
+        public void DocumentLandscapeFillsHeight()
+        {
+            var available = new Vector2(3000f, 1700f);
+            var size = GP_OverlayResponsive.CalculatePanelSize(available,
+                new Vector2(480f, 320f), new Vector2(2400f, 1800f), 2f, 1.15f,
+                GP_OverlaySizeMode.Document);
+
+            Assert.That(size.y, Is.EqualTo(available.y).Within(0.1f));
+            Assert.That(size.x, Is.LessThanOrEqualTo(available.x));
+            Assert.That(size.x, Is.GreaterThan(0f));
+        }
+
+        [Test]
+        public void DocumentPortraitFillsWidth()
+        {
+            var available = new Vector2(984f, 1824f);
+            var size = GP_OverlayResponsive.CalculatePanelSize(available,
+                new Vector2(480f, 320f), new Vector2(2400f, 1800f), 2f, 1.15f,
+                GP_OverlaySizeMode.Document);
+
+            Assert.That(size.x, Is.EqualTo(available.x).Within(0.1f));
+            Assert.That(size.y, Is.EqualTo(available.y).Within(0.1f));
+        }
+
+        [Test]
+        public void OverlayFitClassifiesKinds()
+        {
+            Assert.That(GP_OverlayFit.IsSheet(GP_OverlayKind.Achievements), Is.True);
+            Assert.That(GP_OverlayFit.IsSheet(GP_OverlayKind.Document), Is.False);
+            Assert.That(GP_OverlayFit.IsDialog(GP_OverlayKind.Confirm), Is.True);
+            Assert.That(GP_OverlayFit.Resolve(GP_OverlayKind.Achievements, true),
+                Is.EqualTo(GP_OverlaySizeMode.Sheet));
+            Assert.That(GP_OverlayFit.Resolve(GP_OverlayKind.Achievements, false),
+                Is.EqualTo(GP_OverlaySizeMode.Modal));
+            Assert.That(GP_OverlayFit.Resolve(GP_OverlayKind.Document, true),
+                Is.EqualTo(GP_OverlaySizeMode.Document));
+            Assert.That(GP_OverlayFit.IsMobilePreview(new Vector2Int(540, 960)), Is.True);
+            Assert.That(GP_OverlayFit.IsMobilePreview(new Vector2Int(1280, 720)), Is.False);
+        }
+
+        [Test]
+        public void LandscapeReferenceKeepsDesignedContentScale()
+        {
+            var designed = new Vector2(1080f, 1920f);
+            var landscape = GP_OverlayFit.ReferenceFor(designed, 1920, 1080);
+            var portrait = GP_OverlayFit.ReferenceFor(designed, 1080, 1920);
+
+            Assert.That(landscape, Is.EqualTo(new Vector2(1920f, 1080f)));
+            Assert.That(portrait, Is.EqualTo(new Vector2(1080f, 1920f)));
+
+            var landscapeCanvas = GP_OverlayFit.CanvasLogicalSize(designed, 1920, 1080);
+            Assert.That(landscapeCanvas.y, Is.EqualTo(1080f).Within(1f));
+            Assert.That(landscapeCanvas.x / landscapeCanvas.y, Is.EqualTo(1920f / 1080f).Within(0.02f));
+        }
+
+        [Test]
+        public void DocumentReaderUsesLargeWrappingText()
+        {
+            var root = GP_OverlayPrefabBuilder.BuildPreview(GP_OverlayKind.Document,
+                GP_OverlayPrefabBuilder.DefaultSkin);
+            try
+            {
+                var view = root.GetComponent<GP_DocumentView>();
+                Assert.That(view, Is.Not.Null);
+                Assert.That(view.scrollRect, Is.Not.Null);
+                Assert.That(view.scrollRect.horizontal, Is.False);
+                Assert.That(view.contentLabel.fontSize, Is.EqualTo(GP_DocumentView.ReaderFontSize).Within(0.1f));
+                Assert.That(view.maxTextWidth, Is.EqualTo(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
+        public void AchievementsCounterDoesNotDemandWideHeader()
+        {
+            var root = GP_OverlayPrefabBuilder.BuildPreview(GP_OverlayKind.Achievements,
+                GP_OverlayPrefabBuilder.DefaultSkin);
+            try
+            {
+                var view = root.GetComponent<GP_AchievementsView>();
+                var layout = view.counterLabel.GetComponent<LayoutElement>();
+                Assert.That(layout.minWidth, Is.LessThanOrEqualTo(0f));
+                Assert.That(layout.preferredWidth, Is.LessThanOrEqualTo(200.01f));
+                Assert.That(view.counterLabel.overflowMode, Is.EqualTo(TMPro.TextOverflowModes.Ellipsis));
+            }
+            finally
+            {
+                Object.DestroyImmediate(root);
+            }
+        }
+
+        [Test]
         public void AchievementsGridUsesSingleCompactColumn()
         {
             var root = GP_OverlayPrefabBuilder.BuildPreview(GP_OverlayKind.Achievements,

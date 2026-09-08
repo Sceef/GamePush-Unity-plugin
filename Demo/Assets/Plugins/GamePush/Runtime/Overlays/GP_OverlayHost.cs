@@ -1,8 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using GamePush.Overlays.Widgets;
 
 namespace GamePush.Overlays
 {
@@ -24,6 +26,7 @@ namespace GamePush.Overlays
         RectTransform _root;
         GameObject _ownedEventSystem;
         Vector2 _lastScreen;
+        Coroutine _relayout;
 
         public static GP_OverlayHost Instance => _instance;
 
@@ -61,7 +64,7 @@ namespace GamePush.Overlays
             if (screen != _lastScreen)
             {
                 _lastScreen = screen;
-                ApplyScalerMatch();
+                QueueRelayout();
             }
 
             if (BackPressed())
@@ -117,6 +120,8 @@ namespace GamePush.Overlays
             view.Attach(this, kind);
             _stack.Add(view);
             ApplyScalerMatch();
+            Canvas.ForceUpdateCanvases();
+            view.RefreshLayout();
             view.Bind(args);
             view.PlayShow();
             GP_Overlays.RaiseOpen(kind);
@@ -183,20 +188,54 @@ namespace GamePush.Overlays
         }
 
         /// <summary>
-        /// Scales against whichever axis is the tighter one so content never spills off screen
-        /// when the device rotates or the desktop window is resized.
+        /// Scales against an orientation-matched reference so designed font sizes stay readable
+        /// in landscape instead of shrinking with a portrait reference.
         /// </summary>
         void ApplyScalerMatch()
         {
             if (_scaler == null)
                 return;
-            var reference = Skin.referenceResolution;
-            if (reference.x <= 0f || reference.y <= 0f)
+            var designed = Skin.referenceResolution;
+            if (designed.x <= 0f || designed.y <= 0f)
                 return;
-            var screenAspect = (float)Screen.width / Mathf.Max(1, Screen.height);
-            var referenceAspect = reference.x / reference.y;
+            var reference = GP_OverlayFit.ReferenceFor(designed, Screen.width, Screen.height);
             _scaler.referenceResolution = reference;
-            _scaler.matchWidthOrHeight = screenAspect > referenceAspect ? 1f : 0f;
+            _scaler.matchWidthOrHeight = GP_OverlayFit.MatchWidthOrHeight(Screen.width, Screen.height, reference);
+        }
+
+        void QueueRelayout()
+        {
+            ApplyScalerMatch();
+            if (!isActiveAndEnabled)
+            {
+                RefreshOpenOverlays();
+                return;
+            }
+            if (_relayout != null)
+                StopCoroutine(_relayout);
+            _relayout = StartCoroutine(RelayoutAfterCanvas());
+        }
+
+        IEnumerator RelayoutAfterCanvas()
+        {
+            ApplyScalerMatch();
+            Canvas.ForceUpdateCanvases();
+            RefreshOpenOverlays();
+            yield return null;
+            ApplyScalerMatch();
+            Canvas.ForceUpdateCanvases();
+            RefreshOpenOverlays();
+            _relayout = null;
+        }
+
+        void RefreshOpenOverlays()
+        {
+            for (var i = 0; i < _stack.Count; i++)
+            {
+                var view = _stack[i];
+                if (view != null)
+                    view.RefreshLayout();
+            }
         }
 
         void EnsureEventSystem()

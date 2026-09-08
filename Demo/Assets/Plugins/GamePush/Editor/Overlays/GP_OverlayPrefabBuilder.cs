@@ -169,7 +169,7 @@ namespace GamePushEditor.Overlays
                     SetScreen(skin, kind, prefab, 1.65f, new Vector2(360f, 400f), new Vector2(1650f, 1500f));
                     break;
                 case GP_OverlayKind.Document:
-                    SetScreen(skin, kind, prefab, 1.1f, new Vector2(360f, 400f), new Vector2(1100f, 1800f));
+                    SetScreen(skin, kind, prefab, 2f, new Vector2(480f, 320f), new Vector2(2400f, 1800f));
                     break;
                 case GP_OverlayKind.GamesCollections:
                     SetScreen(skin, kind, prefab, 1.65f, new Vector2(360f, 400f), new Vector2(1550f, 1500f));
@@ -387,6 +387,8 @@ namespace GamePushEditor.Overlays
 
             shell.title = Text("Title", header.transform, "", Skin.titleSize, GP_OverlayColorRole.Text,
                 TextAlignmentOptions.MidlineLeft);
+            shell.title.overflowMode = TextOverflowModes.Ellipsis;
+            shell.title.textWrappingMode = TextWrappingModes.NoWrap;
             Element(shell.title.gameObject, flexibleWidth: 1f);
 
             shell.close = IconButton("Close", header.transform, Skin.closeIcon, GP_OverlayColorRole.Button);
@@ -470,8 +472,10 @@ namespace GamePushEditor.Overlays
             view.counterLabel = Text("Counter", shell.header, "", Skin.captionSize, GP_OverlayColorRole.TextMuted,
                 TextAlignmentOptions.MidlineRight);
             view.counterLabel.richText = true;
+            view.counterLabel.overflowMode = TextOverflowModes.Ellipsis;
+            view.counterLabel.textWrappingMode = TextWrappingModes.NoWrap;
             view.counterLabel.transform.SetSiblingIndex(1);
-            Element(view.counterLabel.gameObject, minWidth: 240f, preferredWidth: 320f);
+            Element(view.counterLabel.gameObject, minWidth: 0f, preferredWidth: 200f, flexibleWidth: 0.4f);
 
             Vertical(shell.body.gameObject, new RectOffset(0, 0, 0, 0), 0f);
 
@@ -654,10 +658,14 @@ namespace GamePushEditor.Overlays
             var fitter = content.gameObject.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var body = Text("Text", content, "", Skin.bodySize, GP_OverlayColorRole.Text, TextAlignmentOptions.TopLeft);
+            var body = Text("Text", content, "", 42f, GP_OverlayColorRole.Text, TextAlignmentOptions.TopLeft);
+            body.textWrappingMode = TextWrappingModes.Normal;
+            body.overflowMode = TextOverflowModes.Overflow;
             view.contentLabel = body;
             view.contentLayout = body.gameObject.AddComponent<LayoutElement>();
-            view.contentLayout.preferredWidth = view.maxTextWidth;
+            view.maxTextWidth = 0f;
+            view.contentLayout.preferredWidth = -1f;
+            view.contentLayout.flexibleWidth = 1f;
 
             scroll.viewport = viewport;
             scroll.content = content;
@@ -804,7 +812,11 @@ namespace GamePushEditor.Overlays
             Element(text.gameObject, flexibleWidth: 1f);
 
             row.titleLabel = Text("Title", text, "", Skin.bodySize, GP_OverlayColorRole.Text);
+            row.titleLabel.overflowMode = TextOverflowModes.Ellipsis;
+            row.titleLabel.textWrappingMode = TextWrappingModes.NoWrap;
             row.descriptionLabel = Text("Description", text, "", Skin.captionSize, GP_OverlayColorRole.TextMuted);
+            row.descriptionLabel.overflowMode = TextOverflowModes.Ellipsis;
+            row.descriptionLabel.textWrappingMode = TextWrappingModes.Normal;
 
             var progressRow = Rect("ProgressRow", text);
             Horizontal(progressRow.gameObject, new RectOffset(0, 0, 0, 0), 8f, false).childAlignment =

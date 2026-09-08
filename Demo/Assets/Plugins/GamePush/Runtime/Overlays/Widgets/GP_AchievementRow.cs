@@ -7,6 +7,8 @@ namespace GamePush.Overlays.Widgets
     public sealed class GP_AchievementRow : MonoBehaviour
     {
         const float IconSize = 88f;
+        const float CompactIconSize = 56f;
+        const float CompactRowWidth = 420f;
         const float ChipIconSize = 22f;
         const float ProgressHeight = 8f;
 
@@ -24,12 +26,15 @@ namespace GamePush.Overlays.Widgets
         {
             foreach (var horizontal in GetComponents<HorizontalLayoutGroup>())
                 horizontal.childForceExpandHeight = false;
-            if (icon != null)
-                GP_LayoutSquare.Lock(icon, IconSize);
+            ApplyIconSize();
+            Ellipsis(titleLabel, wrap: false);
+            Ellipsis(descriptionLabel, wrap: true);
             LockChip(unlockedBadge);
             LockChip(lockedBadge);
             LockProgressTrack();
         }
+
+        void OnRectTransformDimensionsChange() => ApplyIconSize();
 
         public void Bind(AchievementsFetch achievement, AchievementsFetchPlayer progress, int index)
         {
@@ -48,6 +53,7 @@ namespace GamePush.Overlays.Widgets
             if (titleLabel != null)
             {
                 titleLabel.text = showName ? achievement.name : GP_OverlayStrings.HiddenAchievement;
+                Ellipsis(titleLabel, wrap: false);
                 GP_OverlayTone.Paint(titleLabel, skin,
                     unlocked ? GP_OverlayColorRole.Text : GP_OverlayColorRole.TextMuted);
             }
@@ -55,6 +61,7 @@ namespace GamePush.Overlays.Widgets
             if (descriptionLabel != null)
             {
                 descriptionLabel.text = showDescription ? achievement.description : "";
+                Ellipsis(descriptionLabel, wrap: true);
                 GP_OverlayTone.Paint(descriptionLabel, skin, GP_OverlayColorRole.TextMuted);
                 descriptionLabel.gameObject.SetActive(!string.IsNullOrEmpty(descriptionLabel.text));
             }
@@ -66,7 +73,7 @@ namespace GamePush.Overlays.Widgets
                 icon.gameObject.SetActive(hasIcon);
                 if (hasIcon)
                 {
-                    GP_LayoutSquare.Lock(icon, IconSize);
+                    ApplyIconSize();
                     icon.Load(url, skin.iconPlaceholder);
                 }
             }
@@ -90,6 +97,23 @@ namespace GamePush.Overlays.Widgets
                 lockedBadge.SetActive(!unlocked);
             if (unlockedBadge != null)
                 unlockedBadge.SetActive(unlocked);
+        }
+
+        void ApplyIconSize()
+        {
+            if (icon == null)
+                return;
+            var width = ((RectTransform)transform).rect.width;
+            var size = width > 0f && width < CompactRowWidth ? CompactIconSize : IconSize;
+            GP_LayoutSquare.Lock(icon, size);
+        }
+
+        static void Ellipsis(TMP_Text text, bool wrap)
+        {
+            if (text == null)
+                return;
+            text.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
         }
 
         static string IconUrl(AchievementsFetch achievement, bool unlocked)

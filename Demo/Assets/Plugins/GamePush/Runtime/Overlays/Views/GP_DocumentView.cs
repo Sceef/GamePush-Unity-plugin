@@ -8,13 +8,15 @@ namespace GamePush.Overlays.Views
 {
     public sealed class GP_DocumentView : GP_OverlayView
     {
+        public const float ReaderFontSize = 42f;
+
         public ScrollRect scrollRect;
         public TMP_Text contentLabel;
 
-        [Tooltip("Documents stay readable only up to a certain line length, even on a wide panel.")]
+        [Tooltip("When positive, caps the text column. 0 uses the viewport width.")]
         public LayoutElement contentLayout;
 
-        public float maxTextWidth = 700f;
+        public float maxTextWidth;
         float _lastViewportWidth = -1f;
 
         public override void Bind(object args)
@@ -22,6 +24,7 @@ namespace GamePush.Overlays.Views
             var data = args as GP_DocumentArgs ?? new GP_DocumentArgs();
             SetTitle(GP_OverlayStrings.Document);
             ShowLoading();
+            ApplyReaderStyle();
             if (contentLabel != null)
                 contentLabel.text = "";
 
@@ -30,10 +33,28 @@ namespace GamePush.Overlays.Views
             NativeDocuments.FetchForOverlay(data.type, data.format, OnLoaded, ShowError);
         }
 
+        protected override void OnViewportChanged()
+        {
+            base.OnViewportChanged();
+            _lastViewportWidth = -1f;
+            ApplyTextWidth();
+        }
+
         protected override void Update()
         {
             base.Update();
             ApplyTextWidth();
+        }
+
+        void ApplyReaderStyle()
+        {
+            if (contentLabel == null)
+                return;
+            contentLabel.fontSize = ReaderFontSize;
+            contentLabel.textWrappingMode = TextWrappingModes.Normal;
+            contentLabel.overflowMode = TextOverflowModes.Overflow;
+            if (scrollRect != null)
+                scrollRect.horizontal = false;
         }
 
         void ApplyTextWidth()
@@ -42,11 +63,14 @@ namespace GamePush.Overlays.Views
                 return;
             var viewportWidth = scrollRect != null && scrollRect.viewport != null
                 ? scrollRect.viewport.rect.width
-                : maxTextWidth;
+                : 0f;
             if (viewportWidth <= 0f || Mathf.Approximately(viewportWidth, _lastViewportWidth))
                 return;
             _lastViewportWidth = viewportWidth;
-            contentLayout.preferredWidth = Mathf.Min(maxTextWidth, Mathf.Max(1f, viewportWidth - 64f));
+            var width = Mathf.Max(1f, viewportWidth - 64f);
+            if (maxTextWidth > 0f)
+                width = Mathf.Min(width, maxTextWidth);
+            contentLayout.preferredWidth = width;
             contentLayout.flexibleWidth = 0f;
         }
 
@@ -63,6 +87,8 @@ namespace GamePush.Overlays.Views
                 contentLabel.text = content;
                 GP_OverlayTone.Paint(contentLabel, Skin, GP_OverlayColorRole.Text);
             }
+            ApplyReaderStyle();
+            ApplyTextWidth();
             if (scrollRect != null)
             {
                 Canvas.ForceUpdateCanvases();

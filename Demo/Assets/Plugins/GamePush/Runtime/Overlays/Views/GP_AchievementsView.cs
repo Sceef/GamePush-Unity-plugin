@@ -35,6 +35,7 @@ namespace GamePush.Overlays.Views
         public override void Bind(object args)
         {
             SetTitle(GP_OverlayStrings.Achievements);
+            FitCounter();
             ShowLoading();
             list?.Clear();
 
@@ -211,9 +212,24 @@ namespace GamePush.Overlays.Views
         {
             if (counterLabel == null)
                 return;
+            FitCounter();
             counterLabel.richText = true;
             counterLabel.text = GP_OverlayStrings.UnlockedProgress(CountUnlocked(_all), _all.Count, Skin.AccentHex);
-                GP_OverlayTone.Paint(counterLabel, Skin, GP_OverlayColorRole.TextMuted);
+            GP_OverlayTone.Paint(counterLabel, Skin, GP_OverlayColorRole.TextMuted);
+        }
+
+        void FitCounter()
+        {
+            if (counterLabel == null)
+                return;
+            EllipsisSingleLine(counterLabel);
+            var layout = counterLabel.GetComponent<LayoutElement>() ??
+                         counterLabel.gameObject.AddComponent<LayoutElement>();
+            layout.minWidth = 0f;
+            if (layout.preferredWidth > 200f)
+                layout.preferredWidth = 200f;
+            if (layout.flexibleWidth < 0f)
+                layout.flexibleWidth = 0.4f;
         }
     }
 }

@@ -40,9 +40,9 @@ MonoBehaviour:
   - kind: 4
     prefab: {fileID: 602077892840384774, guid: d753a2f824a289040aaa17a811c9d87a, type: 3}
     customPrefab: {fileID: 0}
-    maxAspect: 1.1
-    minSize: {x: 360, y: 400}
-    maxSize: {x: 1100, y: 1800}
+    maxAspect: 2
+    minSize: {x: 480, y: 320}
+    maxSize: {x: 2400, y: 1800}
   - kind: 5
     prefab: {fileID: 3752017666564685124, guid: b37eaef69d98f4f4c82162ead6b19019, type: 3}
     customPrefab: {fileID: 0}
@@ -85,7 +85,7 @@ MonoBehaviour:
   paletteVersion: 1
   backdrop: {r: 0, g: 0, b: 0, a: 0.65}
   panel: {r: 0.055, g: 0.067, b: 0.078, a: 1}
-  header: {r: 0.033463866, g: 0.1509434, b: 0.05819639, a: 1}
+  header: {r: 0.075, g: 0.086, b: 0.098, a: 1}
   sidebar: {r: 0.075, g: 0.086, b: 0.098, a: 1}
   border: {r: 0.22, g: 0.24, b: 0.27, a: 1}
   input: {r: 0.065, g: 0.075, b: 0.086, a: 1}

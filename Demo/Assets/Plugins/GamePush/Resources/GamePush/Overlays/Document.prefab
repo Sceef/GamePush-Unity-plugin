@@ -76,7 +76,7 @@ MonoBehaviour:
   scrollRect: {fileID: 2704657586257592181}
   contentLabel: {fileID: 2934420165315896253}
   contentLayout: {fileID: 2167146488612116614}
-  maxTextWidth: 700
+  maxTextWidth: 0
 --- !u!1 &1025307802400357470
 GameObject:
   m_ObjectHideFlags: 0
@@ -405,6 +405,7 @@ MonoBehaviour:
   minSize: {x: 320, y: 320}
   maxSize: {x: 1400, y: 1800}
   padding: {x: 48, y: 48}
+  sizeMode: 0
 --- !u!114 &3350337614737429103
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -772,8 +773,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 32
-  m_fontSizeBase: 32
+  m_fontSize: 42
+  m_fontSizeBase: 42
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
@@ -845,9 +846,9 @@ MonoBehaviour:
   m_IgnoreLayout: 0
   m_MinWidth: -1
   m_MinHeight: -1
-  m_PreferredWidth: 700
+  m_PreferredWidth: -1
   m_PreferredHeight: -1
-  m_FlexibleWidth: -1
+  m_FlexibleWidth: 1
   m_FlexibleHeight: -1
   m_LayoutPriority: 1
 --- !u!1 &4682416934000984994
@@ -1388,9 +1389,9 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_TextWrappingMode: 1
+  m_TextWrappingMode: 0
   m_wordWrappingRatios: 0.4
-  m_overflowMode: 0
+  m_overflowMode: 1
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 0

@@ -56,7 +56,13 @@ namespace GamePush.Overlays.Widgets
 
         void OnRectTransformDimensionsChange() => Rebuild();
 
-        void OnModeChanged(GP_LayoutMode mode) => Rebuild();
+        void OnModeChanged(GP_LayoutMode mode) => Invalidate();
+
+        public void Invalidate()
+        {
+            _lastWidth = -1f;
+            Rebuild();
+        }
 
         public void Rebuild()
         {
@@ -71,8 +77,8 @@ namespace GamePush.Overlays.Widgets
             if (minCellWidth > 0f)
             {
                 var usable = width - _grid.padding.left - _grid.padding.right + _grid.spacing.x;
-                columns = Mathf.FloorToInt(usable / (minCellWidth + _grid.spacing.x));
-                columns = Mathf.Clamp(columns, 1, Mathf.Max(1, maxColumns));
+                columns = Mathf.Max(1, Mathf.FloorToInt(usable / (minCellWidth + _grid.spacing.x)));
+                columns = Mathf.Min(columns, Mathf.Max(1, maxColumns));
             }
             columns = Mathf.Max(1, columns);
             var ratio = cellRatio;

@@ -3,9 +3,8 @@ using UnityEngine;
 namespace GamePush.Overlays.Widgets
 {
     /// <summary>
-    /// Sizes an overlay panel against the safe area. The square is a ceiling on the aspect ratio,
-    /// not a fixed size: in portrait the panel keeps the full height, in landscape it shrinks to a
-    /// centred square, and on an ultra-wide monitor it never stretches into a strip.
+    /// Sizes an overlay panel against the safe area. Phones fill the safe area (sheet),
+    /// desktop keeps a centred modal, and Document fills height and width on PC and phones.
     /// </summary>
     [ExecuteAlways]
     [RequireComponent(typeof(RectTransform))]
@@ -21,6 +20,8 @@ namespace GamePush.Overlays.Widgets
         [Tooltip("Extra margin inside the safe area, in reference units.")]
         public Vector2 padding = new Vector2(48f, 48f);
 
+        public GP_OverlaySizeMode sizeMode = GP_OverlaySizeMode.Modal;
+
         RectTransform _rect;
         RectTransform _parent;
         Rect _lastSafeArea;
@@ -30,13 +31,22 @@ namespace GamePush.Overlays.Widgets
 
         public void Configure(GP_OverlayPrefabEntry entry)
         {
-            if (entry == null)
-                return;
-            maxAspect = entry.maxAspect > 0f ? entry.maxAspect : maxAspect;
-            minSize = entry.minSize;
-            maxSize = entry.maxSize;
-            padding = GP_OverlaySkin.Instance.screenPadding;
+            if (entry != null)
+            {
+                maxAspect = entry.maxAspect > 0f ? entry.maxAspect : maxAspect;
+                minSize = entry.minSize;
+                maxSize = entry.maxSize;
+            }
+            padding = sizeMode == GP_OverlaySizeMode.Sheet
+                ? GP_OverlayFit.SheetPadding
+                : GP_OverlaySkin.Instance.screenPadding;
             Apply();
+        }
+
+        public void Configure(GP_OverlayPrefabEntry entry, GP_OverlayKind kind, bool mobileLayout)
+        {
+            sizeMode = GP_OverlayFit.Resolve(kind, mobileLayout);
+            Configure(entry);
         }
 
         void OnEnable() => Apply();
@@ -78,7 +88,7 @@ namespace GamePush.Overlays.Widgets
 
             var wideThreshold = GP_OverlaySkin.Instance.wideThreshold;
             var size = CalculatePanelSize(new Vector2(availableWidth, availableHeight), minSize, maxSize,
-                maxAspect, wideThreshold);
+                maxAspect, wideThreshold, sizeMode);
             var width = size.x;
             var height = size.y;
 
@@ -102,7 +112,7 @@ namespace GamePush.Overlays.Widgets
                 Mathf.Max(0f, viewportSize.x - padding.x * 2f),
                 Mathf.Max(0f, viewportSize.y - padding.y * 2f));
             var size = CalculatePanelSize(available, minSize, maxSize, maxAspect,
-                GP_OverlaySkin.Instance.wideThreshold);
+                GP_OverlaySkin.Instance.wideThreshold, sizeMode);
 
             Rect.anchorMin = new Vector2(0.5f, 0.5f);
             Rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -118,6 +128,43 @@ namespace GamePush.Overlays.Widgets
         public static Vector2 CalculatePanelSize(Vector2 available, Vector2 minimum, Vector2 maximum,
             float aspectLimit, float wideThreshold)
         {
+            return CalculatePanelSize(available, minimum, maximum, aspectLimit, wideThreshold,
+                GP_OverlaySizeMode.Modal);
+        }
+
+        public static Vector2 CalculatePanelSize(Vector2 available, Vector2 minimum, Vector2 maximum,
+            float aspectLimit, float wideThreshold, GP_OverlaySizeMode mode)
+        {
+            available.x = Mathf.Max(0f, available.x);
+            available.y = Mathf.Max(0f, available.y);
+
+            Vector2 size;
+            switch (mode)
+            {
+                case GP_OverlaySizeMode.Sheet:
+                case GP_OverlaySizeMode.Document:
+                    size = CalculateSheetSize(available);
+                    break;
+                default:
+                    size = CalculateModalSize(available, minimum, maximum, aspectLimit, wideThreshold);
+                    break;
+            }
+
+            return ClampToAvailable(size, available);
+        }
+
+        static Vector2 CalculateSheetSize(Vector2 available)
+        {
+            var width = available.x;
+            var height = available.y;
+            if (height > 0f && width / height > GP_OverlayFit.UltraWideAspect)
+                width = height * GP_OverlayFit.UltraWideAspect;
+            return new Vector2(width, height);
+        }
+
+        static Vector2 CalculateModalSize(Vector2 available, Vector2 minimum, Vector2 maximum,
+            float aspectLimit, float wideThreshold)
+        {
             var height = Mathf.Clamp(available.y, Mathf.Min(minimum.y, available.y), maximum.y);
             var width = Mathf.Clamp(available.x, Mathf.Min(minimum.x, available.x), maximum.x);
 
@@ -131,6 +178,13 @@ namespace GamePush.Overlays.Widgets
             if (aspectLimit > 0f)
                 width = Mathf.Min(width, height * aspectLimit);
             return new Vector2(width, height);
+        }
+
+        static Vector2 ClampToAvailable(Vector2 size, Vector2 available)
+        {
+            return new Vector2(
+                Mathf.Min(size.x, available.x),
+                Mathf.Min(size.y, available.y));
         }
     }
 }

@@ -370,20 +370,18 @@ namespace GamePushEditor.Overlays
                 return;
             if (_scaler != null)
             {
-                var reference = _skin.referenceResolution;
-                var screenAspect = width / (float)Mathf.Max(1, height);
-                var referenceAspect = reference.y > 0f ? reference.x / reference.y : 1f;
+                var reference = GP_OverlayFit.ReferenceFor(_skin.referenceResolution, width, height);
                 _scaler.referenceResolution = reference;
-                _scaler.matchWidthOrHeight = screenAspect > referenceAspect ? 1f : 0f;
+                _scaler.matchWidthOrHeight = GP_OverlayFit.MatchWidthOrHeight(width, height, reference);
             }
 
             Canvas.ForceUpdateCanvases();
             var responsive = _root.GetComponentInChildren<GP_OverlayResponsive>(true);
             var entry = _skin.Find(_kind);
-            var viewportSize = PreviewViewportSize(_skin, width, height);
+            var viewportSize = GP_OverlayFit.CanvasLogicalSize(_skin.referenceResolution, width, height);
             if (responsive != null)
             {
-                responsive.Configure(entry);
+                responsive.Configure(entry, _kind, GP_OverlayFit.IsMobilePreview(_logical));
                 responsive.ApplyForPreview(viewportSize);
             }
         }
@@ -394,13 +392,6 @@ namespace GamePushEditor.Overlays
             if (prefab != null)
                 return Object.Instantiate(prefab);
             return GP_OverlayPrefabBuilder.BuildPreview(kind, skin);
-        }
-
-        static Vector2 PreviewViewportSize(GP_OverlaySkin skin, int width, int height)
-        {
-            if (width > height)
-                return new Vector2(skin.referenceResolution.y * width / (float)height, skin.referenceResolution.y);
-            return new Vector2(skin.referenceResolution.x, skin.referenceResolution.x * height / (float)width);
         }
 
         internal void Cleanup()

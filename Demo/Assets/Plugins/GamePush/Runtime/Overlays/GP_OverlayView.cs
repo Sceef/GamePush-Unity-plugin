@@ -65,10 +65,43 @@ namespace GamePush.Overlays
 
             var responsive = panel != null ? panel.GetComponent<GP_OverlayResponsive>() : null;
             if (responsive != null)
-                responsive.Configure(Skin.Find(kind));
+                responsive.Configure(Skin.Find(kind), kind, GP_OverlayFit.IsMobileLayout());
 
+            FitHeaderText();
             PinStatusTo(StatusHost);
             ApplyChrome(Skin);
+        }
+
+        /// <summary>
+        /// Re-applies panel size and inner layout after the canvas scaler changes
+        /// (rotation, window resize).
+        /// </summary>
+        internal void RefreshLayout()
+        {
+            var responsive = panel != null ? panel.GetComponent<GP_OverlayResponsive>() : null;
+            if (responsive != null)
+                responsive.Configure(Skin.Find(_kind), _kind, GP_OverlayFit.IsMobileLayout());
+            OnViewportChanged();
+        }
+
+        protected virtual void OnViewportChanged()
+        {
+            var grids = GetComponentsInChildren<GP_FlexibleGrid>(true);
+            for (var i = 0; i < grids.Length; i++)
+                grids[i].Invalidate();
+        }
+
+        void FitHeaderText()
+        {
+            EllipsisSingleLine(titleLabel);
+        }
+
+        protected static void EllipsisSingleLine(TMP_Text text)
+        {
+            if (text == null)
+                return;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Ellipsis;
         }
 
         /// <summary>
