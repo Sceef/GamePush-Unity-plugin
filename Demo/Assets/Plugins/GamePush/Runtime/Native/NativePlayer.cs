@@ -21,6 +21,9 @@ namespace GamePush.Native
         public static string SecretCode { get; private set; } = "";
         public static bool IsLoggedIn { get; private set; }
 
+        // Raw "achievementsList" array from the last player response, consumed by NativeAchievements.
+        public static string AchievementsJson { get; private set; } = "[]";
+
         public static void Adopt(int id, string name)
         {
             if (id > 0)
@@ -262,10 +265,16 @@ namespace GamePush.Native
                 Set("name", name);
             if (GpJson.TryGetString(json, "avatar", out var avatar) && avatar != null)
                 Set("avatar", avatar);
+            if (GpJson.TryGetRaw(json, "achievementsList", out var achievements) &&
+                !string.IsNullOrEmpty(achievements) && achievements.TrimStart().StartsWith("["))
+            {
+                AchievementsJson = achievements;
+                NativeAchievements.ApplyPlayerList(achievements);
+            }
             foreach (var key in GpJson.ObjectKeys(json))
             {
                 if (key == "state" || key == "stats" || key == "token" || key == "authToken" ||
-                    key == "__typename" || key == "selected")
+                    key == "__typename" || key == "selected" || key == "achievementsList")
                     continue;
                 if (GpJson.TryGetString(json, key, out var value) && value != null)
                     Set(key, value);

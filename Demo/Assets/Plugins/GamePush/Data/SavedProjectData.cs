@@ -17,6 +17,8 @@ namespace GamePush.Data
         public bool paymentsStubs = true;
         public bool sdkLive;
         public bool nativeDebugConsole = true;
+        public bool nativeOverlays = true;
+        public bool autoPauseOnOverlay = true;
         public string androidPlatform = "ANDROID";
         public string androidPlatformTag = "";
     }

@@ -2,6 +2,8 @@
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Events;
+using GamePush.Native;
+using GamePush.Overlays;
 
 namespace GamePush
 {
@@ -36,10 +38,28 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_GamesCollections_Open(idOrTag);
 #else
+            if (GamePushHost.UseNativeCore &&
+                GP_Overlays.Open(GP_OverlayKind.GamesCollections, new GP_GamesCollectionsArgs { idOrTag = idOrTag }))
+                return;
             if (GP_Play2Web.Call("GamesCollectionsOpen", idOrTag))
                 return;
             ConsoleLog("OPEN: " + idOrTag);
 #endif
+        }
+
+        internal static void NativeFireOpen() { _onGamesCollectionsOpen?.Invoke(); OnGamesCollectionsOpen?.Invoke(); }
+        internal static void NativeFireClose() { _onGamesCollectionsClose?.Invoke(); OnGamesCollectionsClose?.Invoke(); }
+
+        internal static void NativeFireFetch(string idOrTag, GamesCollectionsFetchData data)
+        {
+            _onGamesCollectionsFetch?.Invoke(idOrTag, data);
+            OnGamesCollectionsFetch?.Invoke(idOrTag, data);
+        }
+
+        internal static void NativeFireFetchError()
+        {
+            _onGamesCollectionsFetchError?.Invoke();
+            OnGamesCollectionsFetchError?.Invoke();
         }
 
 
@@ -54,7 +74,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_GamesCollections_Fetch(idOrTag);
 #else
-
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeGamesCollections.Fetch(idOrTag);
+                return;
+            }
             ConsoleLog("FETCH: " + idOrTag);
 #endif
         }

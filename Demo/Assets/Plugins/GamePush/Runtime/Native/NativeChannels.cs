@@ -7,7 +7,7 @@ using GamePush;
 
 namespace GamePush.Native
 {
-    public static class NativeChannels
+    public static partial class NativeChannels
     {
         public static void FetchChannels(FetchChannelsFilter filter)
         {

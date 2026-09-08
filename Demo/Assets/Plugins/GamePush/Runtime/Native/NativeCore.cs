@@ -22,6 +22,10 @@ namespace GamePush.Native
         public static string PlatformType { get; private set; } = "NONE";
         public static string PlatformTag { get; private set; } = "";
         public static string ServerTime { get; private set; }
+        public static int MainChatId { get; private set; }
+        public static bool MainChatEnabled { get; private set; }
+        public static bool ShowAdCountdownOverlay { get; private set; }
+        public static bool ShowRewardedFailedOverlay { get; private set; }
         public static NativeAdsConfig Ads { get; } = new NativeAdsConfig();
         public static NativeAuthConfig Auth { get; } = new NativeAuthConfig();
         public static NativePaymentsConfig Payments { get; } = new NativePaymentsConfig();
@@ -63,6 +67,20 @@ namespace GamePush.Native
                 ServerTime = GpJson.TryGetString(result, "serverTime", out var st) ? st : "";
                 IsDev = GpJson.GetBool(result, "isDev");
                 IsAllowedOrigin = GpJson.GetBool(result, "isAllowedOrigin", true);
+
+                var project = GpJson.GetObject(result, "project");
+                if (project != null)
+                {
+                    MainChatId = GpJson.GetInt(project, "mainChatId");
+                    MainChatEnabled = GpJson.GetBool(project, "enableMainChat");
+                    var adsConfig = GpJson.GetObject(project, "ads");
+                    if (adsConfig != null)
+                    {
+                        ShowAdCountdownOverlay = GpJson.GetBool(adsConfig, "showCountdownOverlay");
+                        ShowRewardedFailedOverlay = GpJson.GetBool(adsConfig, "showRewardedFailedOverlay");
+                    }
+                }
+
                 var platform = GpJson.GetObject(result, "platformConfig");
                 if (platform != null)
                 {

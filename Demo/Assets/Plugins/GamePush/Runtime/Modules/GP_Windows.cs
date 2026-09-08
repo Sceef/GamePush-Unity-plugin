@@ -2,6 +2,8 @@ using System;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Events;
+using GamePush.Native;
+using GamePush.Overlays;
 
 namespace GamePush
 {
@@ -47,6 +49,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Windows_ShowDefaultConfirm();
 #else
+            if (GamePushHost.UseNativeCore && ShowNativeConfirm(new ConfirmWindowData()))
+                return;
             if (GP_Play2Web.Call("WindowsShowConfirmDefault"))
                 return;
             ConsoleLog("ShowConfirm called");
@@ -67,12 +71,32 @@ namespace GamePush
                 data.invertButtonColors.ToString(),
                 data.hideCancelButton.ToString());
 #else
+            if (GamePushHost.UseNativeCore && ShowNativeConfirm(data))
+                return;
             if (GP_Play2Web.Call("WindowsShowConfirm", data.title, data.description, data.textConfirm, data.textCancel, data.invertButtonColors.ToString()))
                 return;
             ConsoleLog("ShowConfirm called");
             _onConfirm?.Invoke(true);
             OnConfirm?.Invoke(true);
 #endif
+        }
+
+        private static bool ShowNativeConfirm(ConfirmWindowData data)
+        {
+            return GP_Overlays.Open(GP_OverlayKind.Confirm, new GP_ConfirmArgs
+            {
+                title = data?.title ?? "",
+                text = data?.description ?? "",
+                confirmLabel = data?.textConfirm ?? "",
+                cancelLabel = data?.textCancel ?? "",
+                invertButtonColors = data?.invertButtonColors ?? false,
+                hideCancelButton = data?.hideCancelButton ?? false,
+                onResult = result =>
+                {
+                    _onConfirm?.Invoke(result);
+                    OnConfirm?.Invoke(result);
+                }
+            });
         }
     }
 

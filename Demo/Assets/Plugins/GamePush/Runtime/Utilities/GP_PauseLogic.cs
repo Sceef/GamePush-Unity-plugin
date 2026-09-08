@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using GamePush.Data;
+using GamePush.Overlays;
 
 namespace GamePush
 {
@@ -9,6 +11,7 @@ namespace GamePush
         private static bool _tempMute;
         private static bool _gamePause;
         private static bool _adPause;
+        private static bool _overlayPause;
         private static bool _cooperativeSessionActive;
 
         public static void SetCooperativeSessionActive(bool active)
@@ -22,11 +25,18 @@ namespace GamePush
             GP_Game.OnPause += PauseGame;
             GP_Game.OnResume += UnpauseGame;
     
-            GP_Ads.OnPreloaderStart += AdStart;
-            GP_Ads.OnFullscreenStart += AdStart;
-            GP_Ads.OnRewardedStart += AdStart;
-    
-            GP_Ads.OnAdsClose += AdClose;
+            // The component is also added for overlay-only pausing, so ads stay opt-in.
+            if (ProjectData.AUTO_PAUSE_ON_ADS)
+            {
+                GP_Ads.OnPreloaderStart += AdStart;
+                GP_Ads.OnFullscreenStart += AdStart;
+                GP_Ads.OnRewardedStart += AdStart;
+
+                GP_Ads.OnAdsClose += AdClose;
+            }
+
+            if (ProjectData.AUTO_PAUSE_ON_OVERLAY)
+                GP_Overlays.OnAnyOpenChanged += OverlayChanged;
         }
     
         private void OnDisable()
@@ -34,11 +44,17 @@ namespace GamePush
             GP_Game.OnPause -= PauseGame;
             GP_Game.OnResume -= UnpauseGame;
     
-            GP_Ads.OnPreloaderStart -= AdStart;
-            GP_Ads.OnFullscreenStart -= AdStart;
-            GP_Ads.OnRewardedStart -= AdStart;
-    
-            GP_Ads.OnAdsClose -= AdClose;
+            if (ProjectData.AUTO_PAUSE_ON_ADS)
+            {
+                GP_Ads.OnPreloaderStart -= AdStart;
+                GP_Ads.OnFullscreenStart -= AdStart;
+                GP_Ads.OnRewardedStart -= AdStart;
+
+                GP_Ads.OnAdsClose -= AdClose;
+            }
+
+            if (ProjectData.AUTO_PAUSE_ON_OVERLAY)
+                GP_Overlays.OnAnyOpenChanged -= OverlayChanged;
         }
     
         void OnApplicationFocus(bool hasFocus)
@@ -72,7 +88,7 @@ namespace GamePush
     
         private static void UnpauseGame()
         {
-            if (!_gamePause || _adPause) return;
+            if (!_gamePause || _adPause || _overlayPause) return;
             _gamePause = false;
     
             GP_Logger.Log($"Game On Pause: {_gamePause}");
@@ -86,7 +102,16 @@ namespace GamePush
         {
             // Browser focus and ads may mute a co-op client, but must never freeze the shared
             // authority clock. In solo the original GamePush pause behaviour is preserved.
-            Time.timeScale = (_gamePause || _adPause) && !_cooperativeSessionActive ? 0f : 1f;
+            Time.timeScale = (_gamePause || _adPause || _overlayPause) && !_cooperativeSessionActive ? 0f : 1f;
+        }
+
+        private static void OverlayChanged(bool anyOpen)
+        {
+            _overlayPause = anyOpen;
+            if (anyOpen)
+                PauseGame();
+            else
+                UnpauseGame();
         }
     
         private static void MusicOff() => AudioListener.pause = true;

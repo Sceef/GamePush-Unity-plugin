@@ -5,6 +5,7 @@ using UnityEngine.Events;
 
 using GamePush.Utilities;
 using GamePush.Native;
+using GamePush.Overlays;
 using System;
 
 namespace GamePush
@@ -174,6 +175,199 @@ namespace GamePush
         internal static void NativeFireFetchMembers(GP_Data data, bool more) => OnFetchMembers?.Invoke(data, more);
         internal static void NativeFireFetchMembersError() => OnFetchMembersError?.Invoke();
 
+        // Offsets for the FetchMore* calls, which take no offset in the public API.
+        private static int _messagesLoaded;
+        private static int _personalMessagesLoaded;
+        private static int _feedMessagesLoaded;
+
+        internal static void NativeFireFetchMessages(Native.NativeChatPage page, bool more)
+        {
+            _messagesLoaded = more ? _messagesLoaded + page.items.Count : page.items.Count;
+            var data = new GP_Data(page.json);
+            if (more)
+                OnFetchMoreMessages?.Invoke(data, page.more);
+            else
+                OnFetchMessages?.Invoke(data, page.more);
+        }
+
+        internal static void NativeFireFetchMessagesError(bool more)
+        {
+            if (more)
+                OnFetchMoreMessagesError?.Invoke();
+            else
+                OnFetchMessagesError?.Invoke();
+        }
+
+        internal static void NativeFireFetchPersonalMessages(Native.NativeChatPage page, bool more)
+        {
+            _personalMessagesLoaded = more ? _personalMessagesLoaded + page.items.Count : page.items.Count;
+            var data = new GP_Data(page.json);
+            if (more)
+                OnFetchMorePersonalMessages?.Invoke(data, page.more);
+            else
+                OnFetchPersonalMessages?.Invoke(data, page.more);
+        }
+
+        internal static void NativeFireFetchPersonalMessagesError(bool more)
+        {
+            if (more)
+                OnFetchMorePersonalMessagesError?.Invoke();
+            else
+                OnFetchPersonalMessagesError?.Invoke();
+        }
+
+        internal static void NativeFireFetchFeedMessages(Native.NativeChatPage page, bool more)
+        {
+            _feedMessagesLoaded = more ? _feedMessagesLoaded + page.items.Count : page.items.Count;
+            var data = new GP_Data(page.json);
+            if (more)
+                OnFetchMoreFeedMessages?.Invoke(data, page.more);
+            else
+                OnFetchFeedMessages?.Invoke(data, page.more);
+        }
+
+        internal static void NativeFireFetchFeedMessagesError(bool more)
+        {
+            if (more)
+                OnFetchMoreFeedMessagesError?.Invoke();
+            else
+                OnFetchFeedMessagesError?.Invoke();
+        }
+
+        internal static void NativeFireSendMessage(string raw) => OnSendMessage?.Invoke(new GP_Data(raw ?? "{}"));
+        internal static void NativeFireSendMessageError() => OnSendMessageError?.Invoke();
+        internal static void NativeFireIncomingMessage(string raw) => OnMessage?.Invoke(new GP_Data(raw ?? "{}"));
+
+        internal static void NativeFireEditMessage(string raw)
+        {
+            OnEditMessageSuccess?.Invoke(new GP_Data(raw ?? "{}"));
+            OnEditMessageEvent?.Invoke(UtilityJSON.Get<MessageData>(raw ?? "{}"));
+        }
+
+        internal static void NativeFireEditMessageError() => OnEditMessageError?.Invoke();
+        internal static void NativeFireDeleteMessage() => OnDeleteMessageSuccess?.Invoke();
+        internal static void NativeFireDeleteMessageError() => OnDeleteMessageError?.Invoke();
+
+        internal static void NativeFireDeleteChannel(int channel_ID = 0)
+        {
+            OnDeleteChannelSuccess?.Invoke();
+            OnDeleteChannelEvent?.Invoke(channel_ID);
+        }
+
+        internal static void NativeFireDeleteChannelError() => OnDeleteChannelError?.Invoke();
+
+        internal static void NativeFireCancelJoin(int channel_ID)
+        {
+            OnCancelJoinSuccess?.Invoke();
+            OnCancelJoinEvent?.Invoke(new CancelJoinData { channelId = channel_ID });
+        }
+
+        internal static void NativeFireCancelJoinError() => OnCancelJoinError?.Invoke();
+
+        internal static void NativeFireKick(int channel_ID, int player_ID)
+        {
+            OnKick?.Invoke();
+            OnLeaveEvent?.Invoke(new MemberLeaveData { channelId = channel_ID, playerId = player_ID });
+        }
+
+        internal static void NativeFireKickError() => OnKickError?.Invoke();
+
+        internal static void NativeFireMute(int channel_ID, int player_ID, string unmuteAt)
+        {
+            OnMuteSuccess?.Invoke();
+            OnMuteEvent?.Invoke(new MuteData { channelId = channel_ID, playerId = player_ID, unmuteAt = unmuteAt });
+        }
+
+        internal static void NativeFireMuteError() => OnMuteError?.Invoke();
+
+        internal static void NativeFireUnmute(int channel_ID, int player_ID)
+        {
+            OnUnmuteSuccess?.Invoke();
+            OnUnmuteEvent?.Invoke(new UnmuteData { channelId = channel_ID, playerId = player_ID });
+        }
+
+        internal static void NativeFireUnmuteError() => OnUnmuteError?.Invoke();
+        internal static void NativeFireSendInvite(int channel_ID, int player_ID) => OnSendInvite?.Invoke();
+        internal static void NativeFireSendInviteError() => OnSendInviteError?.Invoke();
+
+        internal static void NativeFireCancelInvite(int channel_ID, int player_ID)
+        {
+            OnCancelInviteSuccess?.Invoke();
+            OnCancelInviteEvent?.Invoke(new CancelInviteData { channelId = channel_ID, playerToId = player_ID });
+        }
+
+        internal static void NativeFireCancelInviteError() => OnCancelInviteError?.Invoke();
+        internal static void NativeFireAcceptInvite(int channel_ID) => OnAcceptInvite?.Invoke();
+        internal static void NativeFireAcceptInviteError() => OnAcceptInviteError?.Invoke();
+
+        internal static void NativeFireRejectInvite(int channel_ID)
+        {
+            OnRejectInviteSuccess?.Invoke();
+            OnRejectInviteEvent?.Invoke(new RejectInviteData { channelId = channel_ID });
+        }
+
+        internal static void NativeFireRejectInviteError() => OnRejectInviteError?.Invoke();
+        internal static void NativeFireAcceptJoinRequest(int channel_ID, int player_ID) => OnAcceptJoinRequest?.Invoke();
+        internal static void NativeFireAcceptJoinRequestError() => OnAcceptJoinRequestError?.Invoke();
+
+        internal static void NativeFireRejectJoinRequest(int channel_ID, int player_ID)
+        {
+            OnRejectJoinRequestSuccess?.Invoke();
+            OnRejectJoinRequestEvent?.Invoke(new RejectJoinRequestData { channelId = channel_ID, playerId = player_ID });
+        }
+
+        internal static void NativeFireRejectJoinRequestError() => OnRejectJoinRequestError?.Invoke();
+
+        internal static void NativeFireFetchChannelInvites(GP_Data data, bool more)
+        {
+            if (more)
+                OnFetchMoreChannelInvites?.Invoke(data, false);
+            else
+                OnFetchChannelInvites?.Invoke(data, false);
+        }
+
+        internal static void NativeFireFetchChannelInvitesError(bool more)
+        {
+            if (more)
+                OnFetchMoreChannelInvitesError?.Invoke();
+            else
+                OnFetchChannelInvitesError?.Invoke();
+        }
+
+        internal static void NativeFireFetchJoinRequests(GP_Data data, bool more)
+        {
+            if (more)
+                OnFetchMoreJoinRequests?.Invoke(data, false);
+            else
+                OnFetchJoinRequests?.Invoke(data, false);
+        }
+
+        internal static void NativeFireFetchJoinRequestsError(bool more)
+        {
+            if (more)
+                OnFetchMoreJoinRequestsError?.Invoke();
+            else
+                OnFetchJoinRequestsError?.Invoke();
+        }
+
+        internal static void NativeFireOpenChat()
+        {
+            OnOpenChat?.Invoke();
+            _onOpenChat?.Invoke();
+        }
+
+        internal static void NativeFireOpenChatError()
+        {
+            OnOpenChatError?.Invoke();
+            _onOpenChatError?.Invoke();
+        }
+
+        internal static void NativeFireCloseChat()
+        {
+            OnCloseChat?.Invoke();
+            _onCloseChat?.Invoke();
+        }
+
         #endregion
 
         #if UNITY_WEBGL && !UNITY_EDITOR
@@ -194,11 +388,29 @@ namespace GamePush
             GP_Channels_OpenChat(channel_ID);
             GP_WebGLInput.Release();
 #else
+            if (OpenNativeChat(NativeChatScope.Channel, channel_ID, "")) return;
             if (GP_Play2Web.Call("GP_Channels_OpenChat", channel_ID)) return;
 
             ConsoleLog("OPEN CHAT: CHANNEL ID: " + channel_ID);
             _onOpenChat?.Invoke();
 #endif
+        }
+
+        private static bool OpenNativeChat(NativeChatScope scope, int target, string tags)
+        {
+            if (!GamePushHost.UseNativeCore)
+                return false;
+            // -10 is the module's sentinel for "the project's main chat".
+            if (scope == NativeChatScope.Channel && target == -10)
+                target = MainChatId();
+            if (scope == NativeChatScope.Channel && target <= 0)
+                return false;
+            return GP_Overlays.Open(GP_OverlayKind.Chat, new GP_ChatArgs
+            {
+                scope = scope,
+                target = target,
+                tags = tags ?? ""
+            });
         }
 
         public static void OpenChat(string tags, Action onOpen = null, Action onClose = null, Action onOpenError = null)
@@ -210,6 +422,7 @@ namespace GamePush
             GP_Channels_OpenChatWithTags(-10, tags);
             GP_WebGLInput.Release();
 #else
+            if (OpenNativeChat(NativeChatScope.Channel, -10, tags)) return;
             if (GP_Play2Web.Call("GP_Channels_OpenChatWithTags", -10, tags)) return;
 
             ConsoleLog("OPEN CHAT");
@@ -226,6 +439,7 @@ namespace GamePush
             GP_Channels_OpenChatWithTags(channel_ID, tags);
             GP_WebGLInput.Release();
 #else
+            if (OpenNativeChat(NativeChatScope.Channel, channel_ID, tags)) return;
             if (GP_Play2Web.Call("GP_Channels_OpenChatWithTags", channel_ID, tags)) return;
 
             ConsoleLog("OPEN CHAT: CHANNEL ID: " + channel_ID);
@@ -242,6 +456,7 @@ namespace GamePush
             GP_Channels_OpenChat(-10);
             GP_WebGLInput.Release();
 #else
+            if (OpenNativeChat(NativeChatScope.Channel, -10, "")) return;
             if (GP_Play2Web.Call("GP_Channels_OpenChat", -10)) return;
 
             ConsoleLog("OPEN CHAT");
@@ -261,6 +476,7 @@ namespace GamePush
             GP_Channels_OpenPersonalChat(player_ID, tags);
             GP_WebGLInput.Release();
 #else
+            if (OpenNativeChat(NativeChatScope.Personal, player_ID, tags)) return;
             if (GP_Play2Web.Call("GP_Channels_OpenPersonalChat", player_ID, tags)) return;
 
             ConsoleLog("OPEN PERSONAL CHAT: PLAYER ID: " + player_ID);
@@ -281,6 +497,7 @@ namespace GamePush
             GP_Channels_OpenFeed(player_ID, tags);
             GP_WebGLInput.Release();
 #else
+            if (OpenNativeChat(NativeChatScope.Feed, player_ID, tags)) return;
             if (GP_Play2Web.Call("GP_Channels_OpenFeed", player_ID, tags)) return;
 
             ConsoleLog("OPEN FEED: PLAYER ID: " + player_ID);
@@ -297,6 +514,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             return GP_Channels_IsMainChatEnabled() == "true";
 #else
+            if (GamePushHost.UseNativeCore)
+                return NativeCore.MainChatEnabled;
             if (GP_Play2Web.TryGetBool("GP_Channels_IsMainChatEnabled", out var _gpLive)) return _gpLive;
 
             Console.Log("IS MAIN CHAT ENABLED: TRUE");
@@ -314,6 +533,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             return GP_Channels_MainChatId();
 #else
+            if (GamePushHost.UseNativeCore)
+                return NativeCore.MainChatId;
             if (GP_Play2Web.TryGetInt("GP_Channels_MainChatId", out var _gpLiveInt)) return _gpLiveInt;
 
             Console.Log("MAIN CHAT ID: 0");
@@ -366,6 +587,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_CancelJoin(channel_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.CancelJoin(channel_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_CancelJoin", channel_ID)) return;
 
             ConsoleLog("CANCEL JOIN");
@@ -401,6 +627,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_Kick(channel_ID, player_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.Kick(channel_ID, player_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_Kick", channel_ID, player_ID)) return;
 
             ConsoleLog("KICK");
@@ -416,6 +647,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_Mute_Seconds(channel_ID, player_ID, seconds);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.Mute(channel_ID, player_ID, seconds, null);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_Mute_Seconds", channel_ID, player_ID, seconds)) return;
 
             ConsoleLog("MUTE");
@@ -431,6 +667,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_Mute_UnmuteAt(channel_ID, player_ID, unmuteAT);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.Mute(channel_ID, player_ID, 0, unmuteAT);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_Mute_UnmuteAt", channel_ID, player_ID, unmuteAT)) return;
 
             ConsoleLog("MUTE");
@@ -446,6 +687,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_UnMute(channel_ID, player_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.Unmute(channel_ID, player_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_UnMute", channel_ID, player_ID)) return;
 
             ConsoleLog("UNMUTE");
@@ -461,6 +707,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_SendInvite(channel_ID, player_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.SendInvite(channel_ID, player_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_SendInvite", channel_ID, player_ID)) return;
 
             ConsoleLog("SEND INVITE");
@@ -476,6 +727,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_CancelInvite(channel_ID, player_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.CancelInvite(channel_ID, player_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_CancelInvite", channel_ID, player_ID)) return;
 
             ConsoleLog("CANCEL INVITE");
@@ -491,6 +747,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_AcceptInvite(channel_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.AcceptInvite(channel_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_AcceptInvite", channel_ID)) return;
 
             ConsoleLog("ACCEPT INVITE");
@@ -506,6 +767,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_RejectInvite(channel_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.RejectInvite(channel_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_RejectInvite", channel_ID)) return;
 
             ConsoleLog("REJECT INVITE");
@@ -551,6 +817,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchChannelInvites(channel_ID, limit, offset);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchChannelInvites(channel_ID, limit, offset, false);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchChannelInvites", channel_ID, limit, offset)) return;
             //if (GP_ConsoleController.Instance.ChannelConsoleLogs)
             ConsoleLog("FETCH CHANNEL INVITES");
@@ -611,6 +882,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_AcceptJoinRequest(channel_ID, player_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.AcceptJoinRequest(channel_ID, player_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_AcceptJoinRequest", channel_ID, player_ID)) return;
             //if (GP_ConsoleController.Instance.ChannelConsoleLogs)
             ConsoleLog("ACCEPT JOIN REQUEST");
@@ -626,6 +902,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_RejectJoinRequest(channel_ID, player_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.RejectJoinRequest(channel_ID, player_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_RejectJoinRequest", channel_ID, player_ID)) return;
             //if (GP_ConsoleController.Instance.ChannelConsoleLogs)
             ConsoleLog("REJECT JOIN REQUEST");
@@ -641,6 +922,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchJoinRequests(channel_ID, limit, offset);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchJoinRequests(channel_ID, limit, offset, false);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchJoinRequests", channel_ID, limit, offset)) return;
             //if (GP_ConsoleController.Instance.ChannelConsoleLogs)
             ConsoleLog("FETCH JOIN REQUESTS");
@@ -701,6 +987,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_SendMessage(channel_ID, text, tags);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.SendMessage(NativeChatScope.Channel, channel_ID, text, tags);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_SendMessage", channel_ID, text, tags)) return;
             //if (GP_ConsoleController.Instance.ChannelConsoleLogs)
             ConsoleLog("SEND MESSAGE");
@@ -716,6 +1007,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_SendPersonalMessage(player_ID, text, tags);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.SendMessage(NativeChatScope.Personal, player_ID, text, tags);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_SendPersonalMessage", player_ID, text, tags)) return;
 
             ConsoleLog("SEND PERSONAL MESSAGE");
@@ -731,6 +1027,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_SendFeedMessage(player_ID, text, tags);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.SendMessage(NativeChatScope.Feed, player_ID, text, tags);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_SendFeedMessage", player_ID, text, tags)) return;
 
             ConsoleLog("SEND FEED MESSAGE");
@@ -746,6 +1047,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_EditMessage(message_ID, text);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.EditMessage(message_ID, text);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_EditMessage", message_ID, text)) return;
 
             ConsoleLog("EDIT MESSAGE");
@@ -761,6 +1067,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_DeleteMessage(message_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.DeleteMessage(message_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_DeleteMessage", message_ID)) return;
 
             ConsoleLog("DELETE MESSAGE");
@@ -776,6 +1087,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchMessages(channel_ID, tags, limit, offset);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchMessages(channel_ID, tags, limit, offset, false);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchMessages", channel_ID, tags, limit, offset)) return;
 
             ConsoleLog("FETCH MESSAGES");
@@ -791,6 +1107,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchPersonalMessages(player_ID, tags, limit, offset);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchPersonalMessages(player_ID, tags, limit, offset, false);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchPersonalMessages", player_ID, tags, limit, offset)) return;
 
             ConsoleLog("FETCH PERSONAL MESSAGES");
@@ -806,6 +1127,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchFeedMessages(player_ID, tags, limit, offset);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchFeedMessages(player_ID, tags, limit, offset, false);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchFeedMessages", player_ID, tags, limit, offset)) return;
 
             ConsoleLog("FETCH FEED MESSAGES");
@@ -821,6 +1147,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchMoreMessages(channel_ID, tags, limit);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchMessages(channel_ID, tags, limit, _messagesLoaded, true);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchMoreMessages", channel_ID, tags, limit)) return;
 
             ConsoleLog("FETCH MORE MESSAGES");
@@ -836,6 +1167,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchMorePersonalMessages(player_ID, tags, limit);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchPersonalMessages(player_ID, tags, limit, _personalMessagesLoaded, true);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchMorePersonalMessages", player_ID, tags, limit)) return;
 
             ConsoleLog("FETCH MORE PERSONAL MESSAGES");
@@ -851,6 +1187,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_FetchMoreFeedMessages(player_ID, tags, limit);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.FetchFeedMessages(player_ID, tags, limit, _feedMessagesLoaded, true);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_FetchMoreFeedMessages", player_ID, tags, limit)) return;
 
             ConsoleLog("FETCH MORE FEED MESSAGES");
@@ -867,6 +1208,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
             GP_Channels_DeleteChannel(channel_ID);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeChannels.DeleteChannel(channel_ID);
+                return;
+            }
             if (GP_Play2Web.Call("GP_Channels_DeleteChannel", channel_ID)) return;
 
             ConsoleLog("DELETE CHANNEL");

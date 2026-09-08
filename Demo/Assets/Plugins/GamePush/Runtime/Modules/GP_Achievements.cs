@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine.Events;
 
+using GamePush.Native;
+using GamePush.Overlays;
 using GamePush.Utilities;
 
 namespace GamePush
@@ -48,6 +50,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Achievements_Open();
 #else
+            if (GamePushHost.UseNativeCore && GP_Overlays.Open(GP_OverlayKind.Achievements))
+                return;
             if (GP_Play2Web.Call("AchievementsOpen"))
                 return;
             ConsoleLog("OPEN");
@@ -55,6 +59,17 @@ namespace GamePush
             _onAchievementsOpen?.Invoke();
 #endif
         }
+
+        internal static void NativeFireOpen() { OnAchievementsOpen?.Invoke(); _onAchievementsOpen?.Invoke(); }
+        internal static void NativeFireClose() { OnAchievementsClose?.Invoke(); _onAchievementsClose?.Invoke(); }
+        internal static void NativeFireFetch(List<AchievementsFetch> list) => OnAchievementsFetch?.Invoke(list);
+        internal static void NativeFireFetchGroups(List<AchievementsFetchGroups> list) => OnAchievementsFetchGroups?.Invoke(list);
+        internal static void NativeFireFetchPlayer(List<AchievementsFetchPlayer> list) => OnAchievementsFetchPlayer?.Invoke(list);
+        internal static void NativeFireFetchError() => OnAchievementsFetchError?.Invoke();
+        internal static void NativeFireUnlock(string idOrTag) { OnAchievementsUnlock?.Invoke(idOrTag); _onAchievementsUnlock?.Invoke(idOrTag); }
+        internal static void NativeFireUnlockError(string error) { OnAchievementsUnlockError?.Invoke(error); _onAchievementsUnlockError?.Invoke(error); }
+        internal static void NativeFireProgress(string idOrTag) { OnAchievementsProgress?.Invoke(idOrTag); _onAchievementsProgress?.Invoke(idOrTag); }
+        internal static void NativeFireProgressError() { OnAchievementsProgressError?.Invoke(); _onAchievementsProgressError?.Invoke(); }
 
 
         #if UNITY_WEBGL && !UNITY_EDITOR
@@ -66,6 +81,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Achievements_Fetch();
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeAchievements.Fetch();
+                return;
+            }
             ConsoleLog("FETCH");
 #endif
         }
@@ -83,6 +103,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Achievements_Unlock(idOrTag);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeAchievements.Unlock(idOrTag);
+                return;
+            }
             ConsoleLog("UNLOCK: " + idOrTag);
             OnAchievementsUnlock?.Invoke(idOrTag);
             _onAchievementsUnlock?.Invoke(idOrTag);
@@ -102,6 +127,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Achievements_SetProgress(idOrTag,progress);
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                NativeAchievements.SetProgress(idOrTag, progress);
+                return;
+            }
             ConsoleLog("PROGRESS: " + idOrTag + " : " + progress);
 
             OnAchievementsProgress?.Invoke(idOrTag);
@@ -119,6 +149,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
            return GP_Achievements_Has(idOrTag) == "true";
 #else
+            if (GamePushHost.UseNativeCore)
+                return NativeAchievements.Has(idOrTag);
             ConsoleLog("HAS: " + idOrTag + " : TRUE");
             return true;
 #endif
@@ -134,6 +166,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
            return GP_Achievements_GetProgress(idOrTag);
 #else
+            if (GamePushHost.UseNativeCore)
+                return NativeAchievements.GetProgress(idOrTag);
             ConsoleLog("GET PROGRESS: " + idOrTag + " : 100");
             return 100;
 #endif

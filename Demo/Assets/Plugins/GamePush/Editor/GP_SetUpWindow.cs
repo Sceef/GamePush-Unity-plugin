@@ -116,6 +116,10 @@ namespace GamePushEditor
                 savedProjectData.androidPlatformTag = "";
             if (json.IndexOf("\"nativeDebugConsole\"", StringComparison.Ordinal) < 0)
                 savedProjectData.nativeDebugConsole = true;
+            if (json.IndexOf("\"nativeOverlays\"", StringComparison.Ordinal) < 0)
+                savedProjectData.nativeOverlays = true;
+            if (json.IndexOf("\"autoPauseOnOverlay\"", StringComparison.Ordinal) < 0)
+                savedProjectData.autoPauseOnOverlay = true;
             return savedProjectData;
         }
 
@@ -152,6 +156,8 @@ namespace GamePushEditor
             string fullLogsBool = (GP_Settings.instance != null && GP_Settings.instance.fullLogs)
                 .ToString().ToLower();
             string nativeDebugConsoleBool = _projectData.nativeDebugConsole.ToString().ToLower();
+            string nativeOverlaysBool = _projectData.nativeOverlays.ToString().ToLower();
+            string autoPauseOnOverlayBool = _projectData.autoPauseOnOverlay.ToString().ToLower();
             var androidPlatform = string.IsNullOrEmpty(_projectData.androidPlatform)
                 ? "ANDROID"
                 : _projectData.androidPlatform;
@@ -172,6 +178,8 @@ namespace GamePushEditor
             file.AppendLine($"        public static bool SDK_LIVE = {sdkLiveBool};");
             file.AppendLine($"        public static bool FULL_LOGS = {fullLogsBool};");
             file.AppendLine($"        public static bool NATIVE_DEBUG_CONSOLE = {nativeDebugConsoleBool};");
+            file.AppendLine($"        public static bool NATIVE_OVERLAYS = {nativeOverlaysBool};");
+            file.AppendLine($"        public static bool AUTO_PAUSE_ON_OVERLAY = {autoPauseOnOverlayBool};");
             file.AppendLine($"        public static string ANDROID_PLATFORM = \"{CsString(androidPlatform)}\";");
             file.AppendLine($"        public static string ANDROID_PLATFORM_TAG = \"{CsString(_projectData.androidPlatformTag)}\";");
             file.AppendLine("    }");
@@ -296,6 +304,27 @@ namespace GamePushEditor
             EditorGUILayout.HelpBox(
                 "Bottom-right overlay on native Android. Not shown in the Unity Editor. On by default. Turn off, Save, then rebuild the APK to hide it in release.",
                 MessageType.None);
+
+            GUILayout.Space(10);
+            _projectData.nativeOverlays = EditorGUILayout.Toggle("UI overlays", _projectData.nativeOverlays);
+            EditorGUILayout.HelpBox(
+                "uGUI screens for achievements, leaderboards, chat, documents, game collections, feedback and confirm on Android/Windows. Turn off to keep the previous no-op behaviour.",
+                MessageType.None);
+
+            using (new EditorGUI.DisabledScope(!_projectData.nativeOverlays))
+                _projectData.autoPauseOnOverlay =
+                    EditorGUILayout.Toggle("Pause game on overlay", _projectData.autoPauseOnOverlay);
+            EditorGUILayout.HelpBox(
+                "Sets Time.timeScale to 0 while any overlay is open, the same way ads already do.",
+                MessageType.None);
+
+            if (!GamePushEditor.Overlays.GP_OverlayPrefabBuilder.IsTextMeshProReady)
+                EditorGUILayout.HelpBox(
+                    "TextMeshPro Essential Resources are missing. The overlay prefabs need them; the rebuild button will offer the import.",
+                    MessageType.Warning);
+
+            if (GUILayout.Button("Rebuild default overlay prefabs"))
+                GamePushEditor.Overlays.GP_OverlayPrefabBuilder.RebuildMenu();
 
             GUILayout.Space(25);
 

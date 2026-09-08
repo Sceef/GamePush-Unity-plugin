@@ -31,14 +31,31 @@ namespace GamePush.Native
 #endif
         }
 
-        public static void ShowFullscreen()
+        public static void ShowFullscreen(bool forceCountdown = false)
         {
-            Show("FULLSCREEN", false, null);
+            WithCountdown(forceCountdown, () => Show("FULLSCREEN", false, null));
         }
 
         public static void ShowRewarded(string tag)
         {
-            Show("REWARDED", true, tag);
+            WithCountdown(false, () => Show("REWARDED", true, tag));
+        }
+
+        /// <summary>
+        /// Runs the ad behind the countdown curtain when the project asks for it; otherwise
+        /// starts it right away.
+        /// </summary>
+        static void WithCountdown(bool force, Action start)
+        {
+            if (!force && !NativeCore.ShowAdCountdownOverlay)
+            {
+                start();
+                return;
+            }
+            var opened = Overlays.GP_Overlays.Open(Overlays.GP_OverlayKind.AdCountdown,
+                new Overlays.GP_AdCountdownArgs { seconds = 3f, onDone = start });
+            if (!opened)
+                start();
         }
 
         public static void ShowPreloader()
@@ -137,6 +154,8 @@ namespace GamePush.Native
             {
                 if (rewarded && success)
                     GP_Ads.FireRewardedReward(tag ?? "");
+                if (rewarded && !success && NativeCore.ShowRewardedFailedOverlay)
+                    Overlays.GP_Overlays.Open(Overlays.GP_OverlayKind.AdFailed, new Overlays.GP_AdFailedArgs());
                 if (type == "FULLSCREEN") GP_Ads.FireFullscreenClose(success);
                 if (type == "REWARDED") GP_Ads.FireRewardedClose(success);
                 if (type == "PRELOADER") GP_Ads.FirePreloaderClose(success);

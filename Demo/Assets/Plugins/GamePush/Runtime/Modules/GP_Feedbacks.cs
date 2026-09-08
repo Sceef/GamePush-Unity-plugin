@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Events;
 using GamePush.Utilities;
+using GamePush.Native;
 
 namespace GamePush
 {
@@ -44,6 +45,82 @@ namespace GamePush
 
         public static bool CanLoadMore { get; private set; }
 
+        #region Native
+
+        internal static void NativeFireSend(FeedbackData data)
+        {
+            OnSend?.Invoke(data);
+            _onSend?.Invoke(data);
+        }
+
+        internal static void NativeFireSendError(string error)
+        {
+            OnSendError?.Invoke(error);
+            _onSendError?.Invoke(error);
+        }
+
+        internal static void NativeFireFetch(Native.NativeFeedbacksPage page)
+        {
+            CanLoadMore = page.canLoadMore;
+            OnFetch?.Invoke(page.items, page.canLoadMore);
+            _onFetch?.Invoke(page.items, page.canLoadMore);
+        }
+
+        internal static void NativeFireFetchError(string error)
+        {
+            OnFetchError?.Invoke(error);
+            _onFetchError?.Invoke(error);
+        }
+
+        internal static void NativeFireFetchMore(Native.NativeFeedbacksPage page)
+        {
+            CanLoadMore = page.canLoadMore;
+            OnFetchMore?.Invoke(page.items, page.canLoadMore);
+            _onFetchMore?.Invoke(page.items, page.canLoadMore);
+        }
+
+        internal static void NativeFireFetchMoreError(string error)
+        {
+            OnFetchMoreError?.Invoke(error);
+            _onFetchMoreError?.Invoke(error);
+        }
+
+        internal static void NativeFireSendMessage(FeedbackMessageData data)
+        {
+            OnSendMessage?.Invoke(data);
+            _onSendMessage?.Invoke(data);
+        }
+
+        internal static void NativeFireSendMessageError(string error)
+        {
+            OnSendMessageError?.Invoke(error);
+            _onSendMessageError?.Invoke(error);
+        }
+
+        internal static void NativeFireOpenList()
+        {
+            OnOpenList?.Invoke();
+            _onOpenList?.Invoke();
+        }
+
+        internal static void NativeFireCloseList() => OnCloseList?.Invoke();
+
+        internal static void NativeFireOpenFeedback()
+        {
+            OnOpenFeedback?.Invoke();
+            _onOpenFeedback?.Invoke();
+        }
+
+        internal static void NativeFireOpenFeedbackError(string error)
+        {
+            OnOpenFeedbackError?.Invoke(error);
+            _onOpenFeedbackError?.Invoke(error);
+        }
+
+        internal static void NativeFireCloseFeedback() => OnCloseFeedback?.Invoke();
+
+        #endregion
+
         #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Feedbacks_Send(string payload);
@@ -82,6 +159,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Feedbacks_Send(JsonUtility.ToJson(data ?? new FeedbackData()));
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                Native.NativeFeedbacks.Send(data);
+                return;
+            }
             ConsoleLog("SEND");
             FeedbackData stub = CreateEditorStub(data);
             OnSend?.Invoke(stub);
@@ -103,6 +185,9 @@ namespace GamePush
             GP_Feedbacks_Open(type ?? "", status ?? "");
             GP_WebGLInput.Release();
 #else
+            if (GamePushHost.UseNativeCore && Overlays.GP_Overlays.Open(Overlays.GP_OverlayKind.Feedbacks,
+                    new Overlays.GP_FeedbacksArgs { type = type ?? "", status = status ?? "" }))
+                return;
             if (GP_Play2Web.Call("FeedbacksOpen", type ?? "", status ?? ""))
                 return;
             ConsoleLog("OPEN");
@@ -120,6 +205,9 @@ namespace GamePush
             GP_Feedbacks_OpenFeedback(feedbackId ?? "");
             GP_WebGLInput.Release();
 #else
+            if (GamePushHost.UseNativeCore && Overlays.GP_Overlays.Open(Overlays.GP_OverlayKind.Feedbacks,
+                    new Overlays.GP_FeedbacksArgs { feedbackId = feedbackId ?? "" }))
+                return;
             if (GP_Play2Web.Call("FeedbacksOpenFeedback", feedbackId ?? ""))
                 return;
             ConsoleLog("OPEN FEEDBACK: " + feedbackId);
@@ -146,6 +234,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Feedbacks_Fetch(ToFilterJson(type, status, limit));
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                Native.NativeFeedbacks.Fetch(type, status, limit);
+                return;
+            }
             ConsoleLog("FETCH");
             FeedbackData[] empty = Array.Empty<FeedbackData>();
             CanLoadMore = false;
@@ -162,6 +255,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Feedbacks_FetchMore(ToFilterJson(type, status, limit));
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                Native.NativeFeedbacks.FetchMore(type, status, limit);
+                return;
+            }
             ConsoleLog("FETCH MORE");
             FeedbackData[] empty = Array.Empty<FeedbackData>();
             CanLoadMore = false;
@@ -178,6 +276,11 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Feedbacks_SendMessage(JsonUtility.ToJson(data ?? new FeedbackMessageData()));
 #else
+            if (GamePushHost.UseNativeCore)
+            {
+                Native.NativeFeedbacks.SendMessage(data);
+                return;
+            }
             ConsoleLog("SEND MESSAGE");
             FeedbackMessageData stub = data ?? new FeedbackMessageData();
             if (string.IsNullOrEmpty(stub.id))

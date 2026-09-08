@@ -1,6 +1,6 @@
 namespace GamePush.Native
 {
-    public static class NativeQueries
+    public static partial class NativeQueries
     {
         public const string FetchConfig = @"
 query ($lang: Lang) {
@@ -73,6 +73,7 @@ mutation ($input: SyncPlayerInput!, $withToken: Boolean!) {
       token @include(if: $withToken)
       state
       serverTime
+      achievementsList { " + PlayerAchievementFields + @" }
     }
     ... on PlayerSyncConflict { players }
   }
@@ -94,6 +95,7 @@ query ($input: GetPlayerInput!, $withToken: Boolean!) {
       token @include(if: $withToken)
       state
       serverTime
+      achievementsList { " + PlayerAchievementFields + @" }
     }
   }
 }";

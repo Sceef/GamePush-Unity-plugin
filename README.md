@@ -33,6 +33,69 @@ https://docs.gamepush.com/docs/get-start/
 
 https://docs.gamepush.com/ru/docs/get-start/
 
+## Native UI overlays (Android / Windows)
+
+On WebGL the GamePush JS SDK draws the achievement, leaderboard, chat, document, game collection,
+feedback and confirm screens itself. On Android and Windows there is no JS SDK, so the plugin ships
+its own uGUI screens and fetches the data straight from the GamePush GraphQL API.
+
+Nothing changes in your code: `GP_Achievements.Open()`, `GP_Channels.OpenChat()`,
+`GP_Leaderboard.Open()`, `GP_Documents.Open()`, `GP_GamesCollections.Open()`, `GP_Feedbacks.Open()`
+and `GP_Windows.ShowConfirm()` now show a real screen instead of writing to the console.
+
+### Enabling
+
+`GamePush/Setup` → **Native plugin**:
+
+| Toggle                    | Effect                                                                 |
+| ------------------------- | ---------------------------------------------------------------------- |
+| **UI overlays**           | Turns the native screens on. Off restores the previous no-op behaviour. |
+| **Pause game on overlay** | Sets `Time.timeScale` to 0 while any overlay is open, like ads do.      |
+
+The first time you enable them, press **Rebuild default overlay prefabs**. That generates
+`Assets/Plugins/GamePush/Resources/GamePush/Overlays/` and the `GP_OverlaySkin` asset next to it.
+The screens use TextMeshPro, so the button offers to import TMP Essential Resources if they are
+missing. The same generator is available from the menu as `GamePush/Overlays/Rebuild Default Prefabs`.
+
+### Customising
+
+Three levels, from cheapest to most involved:
+
+1. **Skin** — edit `Resources/GamePush/GP_OverlaySkin.asset`: palette, font, sprites, reference
+   resolution, per-screen size limits and the Compact/Wide threshold.
+2. **Prefabs** — the generated prefabs are ordinary assets. Rearrange them freely; the views only
+   need their serialized references to stay connected. Re-running the generator overwrites them.
+3. **Your own prefab** — assign it in the skin, or swap it at runtime:
+
+```c
+GP_Overlays.SetPrefab(GP_OverlayKind.Achievements, myPrefab);
+```
+
+`GP_Overlays` also exposes `Open`, `Close`, `CloseTop`, `CloseAll`, `IsOpen`, `IsAnyOpen` and the
+`OnOpen` / `OnClose` / `OnAnyOpenChanged` events.
+
+### Orientation
+
+Panels are sized against the safe area rather than to a fixed rectangle. Each screen has an upper
+bound on its aspect ratio, so in portrait it takes the full height and in landscape it shrinks to a
+centred square instead of stretching into a strip. Content then switches between `Compact` and
+`Wide` based on the aspect of the panel — not the screen — which keeps a square panel on a
+landscape phone and a narrow desktop window behaving the same way. Wide adds the group rail to
+achievements, the extra leaderboard columns from `includeFields`, the member list next to the chat
+and the feedback thread beside the list.
+
+### Chat live updates
+
+The GraphQL API exposes no subscription token for chat channels, so new messages are picked up by
+re-reading the newest page every few seconds. `NativeChannelsRealtime.Watch` / `Stop` is the seam:
+switching to a real Centrifugo subscription later only touches that file.
+
+### Example
+
+`Assets/GP_Examples/NativeOverlays/NativeOverlaysDemo.cs` — drop it on any GameObject to get a
+launcher for every overlay plus a button that forces the screen orientation, which is the fastest
+way to check both layouts on a device.
+
 # Methods List
 
 | Plugin modules                                |
@@ -935,11 +998,15 @@ public class FilesFetchMoreFilter
 
 ### Methods
 
-| Method name | Method parameters                 | Return value |
-| ----------- | --------------------------------- | ------------ |
-| `Open`      | `Action onFullscreenOpen = null`  | void         |
-| `Close`     | `Action onFullscreenClose = null` | void         |
-| `Toggle`    | void                              | void         |
+| Method name    | Method parameters                 | Return value |
+| -------------- | --------------------------------- | ------------ |
+| `Open`         | `Action onFullscreenOpen = null`  | void         |
+| `Close`        | `Action onFullscreenClose = null` | void         |
+| `Toggle`       | void                              | void         |
+| `IsFullscreen` | void                              | bool         |
+
+On Android and Windows this maps to `Screen.fullScreen`; handheld platforms always report `true`
+since they have no windowed mode.
 
 ### Actions
 

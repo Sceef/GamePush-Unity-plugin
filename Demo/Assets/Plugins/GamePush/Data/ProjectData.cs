@@ -13,6 +13,8 @@ namespace GamePush.Data
         public static bool SDK_LIVE = true;
         public static bool FULL_LOGS = true;
         public static bool NATIVE_DEBUG_CONSOLE = true;
+        public static bool NATIVE_OVERLAYS = true;
+        public static bool AUTO_PAUSE_ON_OVERLAY = true;
         public static string ANDROID_PLATFORM = "ANDROID";
         public static string ANDROID_PLATFORM_TAG = "";
     }

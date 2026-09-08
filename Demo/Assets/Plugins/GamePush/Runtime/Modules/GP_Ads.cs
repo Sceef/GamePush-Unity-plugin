@@ -98,7 +98,7 @@ namespace GamePush
 #else
             if (GamePushHost.UseNativeCore)
             {
-                NativeAds.ShowFullscreen();
+                NativeAds.ShowFullscreen(showCountdownOverlay);
                 return;
             }
             if (GP_Play2Web.Call("AdsShowFullscreen", showCountdownOverlay.ToString()))

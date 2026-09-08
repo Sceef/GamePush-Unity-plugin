@@ -3,6 +3,8 @@ using UnityEngine.SceneManagement;
 using GamePush;
 using GamePush.Data;
 using GamePush.ConsoleController;
+using GamePush.Native;
+using GamePush.Overlays;
 using System.Threading.Tasks;
 using System;
 using System.Collections;
@@ -76,7 +78,13 @@ namespace GamePush.Initialization
             SDK.AddComponent<GP_Windows>();
             SDK.AddComponent<GP_Sounds>();
 
-            if (ProjectData.AUTO_PAUSE_ON_ADS)
+            if (ProjectData.NATIVE_OVERLAYS && GamePushHost.UseNativeCore)
+            {
+                SDK.AddComponent<GP_OverlayHost>();
+            }
+
+            if (ProjectData.AUTO_PAUSE_ON_ADS ||
+                (ProjectData.AUTO_PAUSE_ON_OVERLAY && ProjectData.NATIVE_OVERLAYS))
             {
                 SDK.AddComponent<GP_PauseLogic>();
             }
