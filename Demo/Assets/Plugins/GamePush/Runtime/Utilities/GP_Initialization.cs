@@ -5,7 +5,6 @@ using GamePush.Data;
 using GamePush.ConsoleController;
 using System.Threading.Tasks;
 using System;
-using System.Runtime.InteropServices;
 using System.Collections;
 
 namespace GamePush.Initialization
@@ -15,26 +14,25 @@ namespace GamePush.Initialization
     {
         public static string VERSION = PluginData.SDK_VERSION;
 
-#if UNITY_WEBGL
-        [DllImport("__Internal")]
-        private static extern void GP_UnityReady();
-#endif
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Execute()
         {
-
-#if !UNITY_EDITOR && UNITY_WEBGL
-             GP_UnityReady();
-#endif
             GameObject SDK = new GameObject();
             SDK.name = "GamePushSDK";
             UnityEngine.Object.DontDestroyOnLoad(SDK);
 
 #if UNITY_EDITOR
             SDK.AddComponent<GP_ConsoleController>();
+            if (ProjectData.ADS_STUBS && !GP_Play2Web.Enabled)
+                SDK.AddComponent<GP_AdsStubOverlay>();
+            if (ProjectData.PAYMENTS_STUBS && !GP_Play2Web.Enabled)
+                SDK.AddComponent<GP_PaymentsStubOverlay>();
 #endif
             SDK.AddComponent<GP_Logger>();
+#if !UNITY_EDITOR
+            if (ProjectData.NATIVE_DEBUG_CONSOLE)
+                SDK.AddComponent<GP_LoggerToasts>();
+#endif
 
             SDK.AddComponent<GP_Init>();
             SetUpInitAwaiter();
@@ -66,6 +64,8 @@ namespace GamePush.Initialization
             SDK.AddComponent<GP_Triggers>();
             SDK.AddComponent<GP_Events>();
             SDK.AddComponent<GP_Experiments>();
+            SDK.AddComponent<GP_Feedbacks>();
+            SDK.AddComponent<GP_Reactions>();
             SDK.AddComponent<GP_Segments>();
             SDK.AddComponent<GP_Rewards>();
             SDK.AddComponent<GP_Schedulers>();

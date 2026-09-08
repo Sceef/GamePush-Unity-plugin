@@ -24,17 +24,22 @@ namespace GamePush
             OnConfirm?.Invoke(success);
         }
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Windows_ShowDefaultConfirm();
+        #endif
         
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Windows_ShowConfirm(
             string title,
             string description,
             string textConfirm,
             string textCancel,
-            string invertButtonColors
+            string invertButtonColors,
+            string hideCancelButton
             );
+        #endif
 
         public static void ShowConfirm(Action<bool> confirmCallback = null)
         {
@@ -42,6 +47,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Windows_ShowDefaultConfirm();
 #else
+            if (GP_Play2Web.Call("WindowsShowConfirmDefault"))
+                return;
             ConsoleLog("ShowConfirm called");
             _onConfirm?.Invoke(true);
             OnConfirm?.Invoke(true);
@@ -57,8 +64,11 @@ namespace GamePush
                 data.description, 
                 data.textConfirm, 
                 data.textCancel, 
-                data.invertButtonColors.ToString());
+                data.invertButtonColors.ToString(),
+                data.hideCancelButton.ToString());
 #else
+            if (GP_Play2Web.Call("WindowsShowConfirm", data.title, data.description, data.textConfirm, data.textCancel, data.invertButtonColors.ToString()))
+                return;
             ConsoleLog("ShowConfirm called");
             _onConfirm?.Invoke(true);
             OnConfirm?.Invoke(true);
@@ -74,19 +84,22 @@ namespace GamePush
         public string textConfirm = "Confirm";
         public string textCancel = "Cancel";
         public bool invertButtonColors = false;
+        public bool hideCancelButton = false;
 
         public ConfirmWindowData(
             string title = "", 
             string description = "", 
             string textConfirm = "", 
             string textCancel = "",
-            bool invertButtonColors = false)
+            bool invertButtonColors = false,
+            bool hideCancelButton = false)
         {
             this.title = title;
             this.description = description;
             this.textConfirm = textConfirm;
             this.textCancel = textCancel;
             this.invertButtonColors = invertButtonColors;
+            this.hideCancelButton = hideCancelButton;
         }
     }
     

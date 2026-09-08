@@ -24,8 +24,10 @@ namespace GamePush
         private static event Action _onDocumentsClose;
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Documents_Open();
+        #endif
         public static void Open(Action onDocumentsOpen = null, Action onDocumentsClose = null)
         {
             _onDocumentsOpen = onDocumentsOpen;
@@ -39,8 +41,10 @@ namespace GamePush
 #endif
         }
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Documents_Fetch();
+        #endif
         public static void Fetch(Action<string> onFetchSuccess = null, Action onFetchError = null)
         {
             _onFetchSuccess = onFetchSuccess;

@@ -12,8 +12,13 @@ namespace GamePush.Data
         public bool showPreloadAd;
         public bool showStickyOnStart;
         public bool waitPluginReady;
-        public bool gameReadyAuto;
         public bool autoPause;
+        public bool adsStubs = true;
+        public bool paymentsStubs = true;
+        public bool sdkLive;
+        public bool nativeDebugConsole = true;
+        public string androidPlatform = "ANDROID";
+        public string androidPlatformTag = "";
     }
 
 }

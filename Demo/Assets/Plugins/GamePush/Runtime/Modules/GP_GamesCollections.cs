@@ -24,8 +24,10 @@ namespace GamePush
         private string _gamesCollectionsFetchTag;
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_GamesCollections_Open(string idOrTag);
+        #endif
         public static void Open(string idOrTag, Action onGamesCollectionsOpen = null, Action onGamesCollectionsClose = null)
         {
             _onGamesCollectionsOpen = onGamesCollectionsOpen;
@@ -40,8 +42,10 @@ namespace GamePush
         }
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_GamesCollections_Fetch(string idOrTag);
+        #endif
         public static void Fetch(string idOrTag, Action<string, GamesCollectionsFetchData> onFetchSuccess = null, Action onFetchError = null)
         {
             _onGamesCollectionsFetch = onFetchSuccess;

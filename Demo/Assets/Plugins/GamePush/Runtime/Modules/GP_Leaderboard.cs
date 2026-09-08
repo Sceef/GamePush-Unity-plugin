@@ -25,20 +25,18 @@ namespace GamePush
         private string _leaderboardPlayerFetchTag;
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Leaderboard_Open(
                 string orderBy = "score",
-                // DESC | ASC
                 string order = "DESC",
                 int limit = 10,
                 int showNearest = 5,
-                // none | first | last
                 string withMe = "none",
-                // level,exp,rank
                 string includeFields = "",
-                // level,rank
                 string displayFields = ""
               );
+        #endif
         public static void Open(string orderBy = "score", Order order = Order.DESC, int limit = 10, int showNearest = 5, WithMe withMe = WithMe.none, string includeFields = "", string displayFields = "")
         {
 #if !UNITY_EDITOR && UNITY_WEBGL
@@ -51,19 +49,18 @@ namespace GamePush
 
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Leaderboard_Fetch(
             string tag = "",
             string orderBy = "score",
-            // DESC | ASC
             string order = "DESC",
             int limit = 10,
             int showNearest = 5,
-            // none | first | last
             string withMe = "none",
-            // level,exp,rank
             string includeFields = ""
         );
+        #endif
         public static void Fetch(string tag = "", string orderBy = "score", Order order = Order.DESC, int limit = 10, int showNearest = 0, WithMe withMe = WithMe.none, string includeFields = "")
         {
 #if !UNITY_EDITOR && UNITY_WEBGL
@@ -76,13 +73,14 @@ namespace GamePush
 
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Leaderboard_FetchPlayerRating(
             string tag = "",
             string orderBy = "score",
-            // DESC | ASC
             string order = "DESC"
         );
+        #endif
         public static void FetchPlayerRating(string tag = "", string orderBy = "score", Order order = Order.DESC)
         {
 #if !UNITY_EDITOR && UNITY_WEBGL

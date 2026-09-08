@@ -11,8 +11,10 @@ namespace GamePush
         public static event UnityAction<string> OnChange;
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern string GP_Current_AvatarGenerator();
+        #endif
         public static string Current()
         {
 #if !UNITY_EDITOR && UNITY_WEBGL
@@ -25,8 +27,10 @@ namespace GamePush
         }
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Change_AvatarGenerator(string generator);
+        #endif
         public static void Change(GeneratorType generator)
         {
 #if !UNITY_EDITOR && UNITY_WEBGL

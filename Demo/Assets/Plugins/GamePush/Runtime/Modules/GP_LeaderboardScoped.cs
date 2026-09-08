@@ -35,6 +35,7 @@ namespace GamePush
 
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Leaderboard_Scoped_Open(
             string idOrTag = "",
@@ -46,6 +47,7 @@ namespace GamePush
             string displayFields = "",
             string withMe = "none"
         );
+        #endif
 
         public static void Open(string idOrTag = "", string variant = "some_variant", Order order = Order.DESC, int limit = 10, int showNearest = 5, string includeFields = "", string displayFields = "", WithMe withMe = WithMe.first)
         {
@@ -59,6 +61,7 @@ namespace GamePush
 
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Leaderboard_Scoped_Fetch(
             string idOrTag = "",
@@ -69,6 +72,7 @@ namespace GamePush
             string includeFields = "",
             string withMe = "none"
         );
+        #endif
 
         public static void Fetch(string idOrTag = "", string variant = "some_variant", Order order = Order.DESC, int limit = 10, int showNearest = 5, string includeFields = "", WithMe withMe = WithMe.none)
         {
@@ -82,6 +86,7 @@ namespace GamePush
 
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Leaderboard_Scoped_PublishRecord(
             string idOrTag = "",
@@ -94,6 +99,7 @@ namespace GamePush
             string key3 = "",
             float value3 = 0
         );
+        #endif
 
         public static void PublishRecord(string idOrTag = "", string variant = "some_variant", bool Override = true, string key1 = "", int record_value1 = 0, string key2 = "", int record_value2 = 0, string key3 = "", int record_value3 = 0)
         {
@@ -117,8 +123,10 @@ namespace GamePush
 
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Leaderboard_Scoped_FetchPlayerRating(string idOrTag = "", string variant = "", string includeFields = "");
+        #endif
         public static void FetchPlayerRating(string idOrTag = "", string variant = "some_variant", string includeFields = "")
         {
 #if !UNITY_EDITOR && UNITY_WEBGL

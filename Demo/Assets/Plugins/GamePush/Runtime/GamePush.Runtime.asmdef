@@ -2,18 +2,27 @@
     "name": "GamePush",
     "rootNamespace": "GamePush",
     "references": [
-        "GUID:037600c3217604015b2d4ac17447fb17"
+        "GUID:037600c3217604015b2d4ac17447fb17",
+        "GUID:f6462ea60ff2d49f29e5a3143f17a135"
     ],
-    "includePlatforms": [
-        "Editor",
-        "WebGL"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.yandex.mobileads",
+            "expression": "",
+            "define": "GP_YANDEX_MOBILE_ADS"
+        },
+        {
+            "name": "com.unity.purchasing",
+            "expression": "5.0",
+            "define": "GP_UNITY_PURCHASING"
+        }
+    ],
     "noEngineReferences": false
 }

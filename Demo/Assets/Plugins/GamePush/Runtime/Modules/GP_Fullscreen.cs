@@ -17,8 +17,10 @@ namespace GamePush
         private static event Action _onFullscreenClose;
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Fullscreen_Open();
+        #endif
         public static void Open(Action onFullscreenOpen = null)
         {
             _onFullscreenOpen = onFullscreenOpen;
@@ -34,8 +36,10 @@ namespace GamePush
         }
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Fullscreen_Close();
+        #endif
         public static void Close(Action onFullscreenClose = null)
         {
             _onFullscreenClose = onFullscreenClose;
@@ -51,8 +55,10 @@ namespace GamePush
         }
 
 
+        #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern void GP_Fullscreen_Toggle();
+        #endif
         public static void Toggle()
         {
 #if !UNITY_EDITOR && UNITY_WEBGL
