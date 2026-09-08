@@ -37,8 +37,12 @@ namespace GamePush.Overlays.Widgets
 
             if (nameLabel != null)
             {
-                var displayName = string.IsNullOrEmpty(entry.name) ? GP_OverlayStrings.You : entry.name;
-                nameLabel.text = isSelf ? displayName + " (" + GP_OverlayStrings.You + ")" : displayName;
+                var displayName = entry.name;
+                if (string.IsNullOrEmpty(displayName))
+                    displayName = isSelf ? GP_OverlayStrings.You : GP_OverlayStrings.PlayerNumber(entry.id);
+                else if (isSelf)
+                    displayName += " (" + GP_OverlayStrings.You + ")";
+                nameLabel.text = displayName;
                 nameLabel.color = skin.text;
             }
 

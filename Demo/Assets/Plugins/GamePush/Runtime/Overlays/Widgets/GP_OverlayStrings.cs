@@ -41,6 +41,7 @@ namespace GamePush.Overlays.Widgets
         public static string Position => Pick("Место", "Rank");
         public static string Score => Pick("Очки", "Score");
         public static string You => Pick("Вы", "You");
+        public static string PlayerNumber(int id) => Pick("Игрок #", "Player #") + id;
         public static string MessagePlaceholder => Pick("Сообщение...", "Message...");
         public static string NewFeedback => Pick("Новое обращение", "New request");
         public static string Play => Pick("Играть", "Play");

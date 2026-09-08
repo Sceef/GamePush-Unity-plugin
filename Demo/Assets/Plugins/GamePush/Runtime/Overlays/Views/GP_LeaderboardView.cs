@@ -92,10 +92,16 @@ namespace GamePush.Overlays.Views
                 component.Bind(entry, _result.fields, index, entry.id == selfId, mode);
             }, Skin.leaderboardRow);
 
-            // Keep the player visible even after scrolling away from their position.
+            // Keep the player visible even after scrolling away from their position,
+            // unless the merged list already carries them and the pin would read as a duplicate.
             var pinned = _result.player;
-            if (selfRowHolder == null || selfRow == null || pinned == null)
+            var alreadyInList = pinned != null && NativeLeaderboard.Contains(_result.players, pinned.id);
+            if (selfRowHolder == null || selfRow == null || pinned == null || alreadyInList)
+            {
+                if (selfRowHolder != null)
+                    selfRowHolder.SetActive(false);
                 return;
+            }
             selfRowHolder.SetActive(true);
             selfRow.Bind(pinned, _result.fields, 0, true, mode);
         }

@@ -154,9 +154,13 @@ namespace GamePush.Native
             var merged = new List<NativeLeaderboardEntry>(result.topPlayers);
             if (showNearest > 0 && result.player != null && !Contains(merged, result.player.id))
             {
-                merged.AddRange(result.abovePlayers);
-                merged.Add(result.player);
-                merged.AddRange(result.belowPlayers);
+                // The nearest block overlaps the top whenever the player sits just below it,
+                // so every neighbour goes in by id instead of wholesale.
+                foreach (var above in result.abovePlayers)
+                    AddUnique(merged, above);
+                AddUnique(merged, result.player);
+                foreach (var below in result.belowPlayers)
+                    AddUnique(merged, below);
             }
             else if (wantsMe && result.player != null && !Contains(merged, result.player.id))
             {
@@ -171,7 +175,13 @@ namespace GamePush.Native
             return result;
         }
 
-        static bool Contains(List<NativeLeaderboardEntry> list, int id)
+        static void AddUnique(List<NativeLeaderboardEntry> list, NativeLeaderboardEntry entry)
+        {
+            if (entry != null && !Contains(list, entry.id))
+                list.Add(entry);
+        }
+
+        internal static bool Contains(List<NativeLeaderboardEntry> list, int id)
         {
             foreach (var entry in list)
             {
