@@ -306,7 +306,11 @@ namespace GamePushEditor
                 MessageType.None);
 
             GUILayout.Space(10);
+            EditorGUILayout.BeginHorizontal();
             _projectData.nativeOverlays = EditorGUILayout.Toggle("UI overlays", _projectData.nativeOverlays);
+            if (GUILayout.Button("Configure", GUILayout.Width(96f)))
+                GamePushEditor.Overlays.GP_OverlaySettingsWindow.Open();
+            EditorGUILayout.EndHorizontal();
             EditorGUILayout.HelpBox(
                 "uGUI screens for achievements, leaderboards, chat, documents, game collections, feedback and confirm on Android/Windows. Turn off to keep the previous no-op behaviour.",
                 MessageType.None);
@@ -322,9 +326,6 @@ namespace GamePushEditor
                 EditorGUILayout.HelpBox(
                     "TextMeshPro Essential Resources are missing. The overlay prefabs need them; the rebuild button will offer the import.",
                     MessageType.Warning);
-
-            if (GUILayout.Button("Rebuild default overlay prefabs"))
-                GamePushEditor.Overlays.GP_OverlayPrefabBuilder.RebuildMenu();
 
             GUILayout.Space(25);
 

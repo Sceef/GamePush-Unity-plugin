@@ -11,17 +11,21 @@ namespace GamePush.Overlays.Views
     {
         public GP_OverlayList list;
         public GP_OverlayLayoutMode layoutMode;
+        public GP_FlexibleGrid grid;
 
         [Header("Group filter (left rail in Wide, chips in Compact)")]
         public RectTransform groupRail;
 
         public Button groupButtonTemplate;
+        public RectTransform compactGroupRail;
+        public Button compactGroupButtonTemplate;
         public TMP_Text counterLabel;
 
         readonly List<AchievementsFetch> _all = new List<AchievementsFetch>();
         readonly List<AchievementsFetch> _visible = new List<AchievementsFetch>();
         readonly List<AchievementsFetchGroups> _groups = new List<AchievementsFetchGroups>();
         readonly List<Button> _groupButtons = new List<Button>();
+        readonly List<Button> _compactGroupButtons = new List<Button>();
 
         int _selectedGroup = -1;
 
@@ -64,20 +68,25 @@ namespace GamePush.Overlays.Views
 
         void BuildGroupRail()
         {
-            if (groupRail == null || groupButtonTemplate == null)
-                return;
+            BuildGroupRail(groupRail, groupButtonTemplate, _groupButtons);
+            BuildGroupRail(compactGroupRail, compactGroupButtonTemplate, _compactGroupButtons);
+        }
 
+        void BuildGroupRail(RectTransform rail, Button template, List<Button> buttons)
+        {
+            if (rail == null || template == null)
+                return;
             var needed = _groups.Count + 1;
-            for (var i = _groupButtons.Count; i < needed; i++)
+            for (var i = buttons.Count; i < needed; i++)
             {
-                var button = Instantiate(groupButtonTemplate, groupRail);
+                var button = Instantiate(template, rail);
                 button.gameObject.SetActive(true);
-                _groupButtons.Add(button);
+                buttons.Add(button);
             }
 
-            for (var i = 0; i < _groupButtons.Count; i++)
+            for (var i = 0; i < buttons.Count; i++)
             {
-                var button = _groupButtons[i];
+                var button = buttons[i];
                 var show = i < needed;
                 button.gameObject.SetActive(show);
                 if (!show)
@@ -101,7 +110,7 @@ namespace GamePush.Overlays.Views
                 });
             }
 
-            groupRail.gameObject.SetActive(_groups.Count > 0);
+            rail.gameObject.SetActive(_groups.Count > 0);
         }
 
         void Refresh()
@@ -138,6 +147,7 @@ namespace GamePush.Overlays.Views
                 var achievement = _visible[index];
                 component.Bind(achievement, NativeAchievements.PlayerEntry(achievement.id), index);
             }, Skin.achievementRow);
+            grid?.Rebuild();
             UpdateCounter();
         }
 

@@ -45,27 +45,31 @@ and `GP_Windows.ShowConfirm()` now show a real screen instead of writing to the 
 
 ### Enabling
 
-`GamePush/Setup` → **Native plugin**:
+`Tools/GamePush` → **Native plugin**:
 
 | Toggle                    | Effect                                                                 |
 | ------------------------- | ---------------------------------------------------------------------- |
 | **UI overlays**           | Turns the native screens on. Off restores the previous no-op behaviour. |
 | **Pause game on overlay** | Sets `Time.timeScale` to 0 while any overlay is open, like ads do.      |
 
-The first time you enable them, press **Rebuild default overlay prefabs**. That generates
-`Assets/Plugins/GamePush/Resources/GamePush/Overlays/` and the `GP_OverlaySkin` asset next to it.
-The screens use TextMeshPro, so the button offers to import TMP Essential Resources if they are
-missing. The same generator is available from the menu as `GamePush/Overlays/Rebuild Default Prefabs`.
+Open **Configure** next to **UI overlays** in `Tools/GamePush`. The window edits the shared
+`GP_OverlaySkin`, previews all
+screens with local mock data and can rebuild one or all generated prefabs. Preview does not call the
+native API. The screens use TextMeshPro; import TMP Essential Resources before rebuilding.
+Rebuild actions live in this window and overwrite only
+`Assets/Plugins/GamePush/Resources/GamePush/Overlays/`.
 
 ### Customising
 
-Three levels, from cheapest to most involved:
+All generated screens share one modular shell, component factory and `GP_OverlaySkin`. Changing the
+palette, font, sprites, spacing or control states in the settings window applies the same design
+tokens to every default overlay on the next rebuild.
 
-1. **Skin** — edit `Resources/GamePush/GP_OverlaySkin.asset`: palette, font, sprites, reference
-   resolution, per-screen size limits and the Compact/Wide threshold.
-2. **Prefabs** — the generated prefabs are ordinary assets. Rearrange them freely; the views only
-   need their serialized references to stay connected. Re-running the generator overwrites them.
-3. **Your own prefab** — assign it in the skin, or swap it at runtime:
+1. **Template** — edit `Resources/GamePush/GP_OverlaySkin.asset` in the overlay settings window.
+2. **Custom prefab** — select an overlay and press **Create and assign custom copy**. The copy is
+   stored at a project-owned path and assigned as `customPrefab`; rebuilding defaults neither
+   overwrites the copy nor clears its assignment. Keep the view's serialized references connected.
+3. **Runtime override** — supply a prefab from code:
 
 ```c
 GP_Overlays.SetPrefab(GP_OverlayKind.Achievements, myPrefab);
@@ -76,13 +80,16 @@ GP_Overlays.SetPrefab(GP_OverlayKind.Achievements, myPrefab);
 
 ### Orientation
 
-Panels are sized against the safe area rather than to a fixed rectangle. Each screen has an upper
-bound on its aspect ratio, so in portrait it takes the full height and in landscape it shrinks to a
-centred square instead of stretching into a strip. Content then switches between `Compact` and
-`Wide` based on the aspect of the panel — not the screen — which keeps a square panel on a
-landscape phone and a narrow desktop window behaving the same way. Wide adds the group rail to
-achievements, the extra leaderboard columns from `includeFields`, the member list next to the chat
-and the feedback thread beside the list.
+Panels are sized against the safe area rather than a fixed rectangle. Portrait uses a tall Compact
+panel; desktop and sufficiently wide mobile landscape viewports use a bounded Wide panel. The mode
+is selected from the final panel aspect, so resizing a desktop window and rotating a phone follow
+the same rules.
+
+Compact moves achievement groups to a horizontal strip, derives game/achievement grid columns from
+available width, hides only dynamic leaderboard columns and swaps Chat/Feedbacks master-detail
+panels at full width. Wide shows the achievement rail, extra leaderboard fields, channel members
+beside chat messages and the feedback thread beside its list. Chat and Feedbacks composers account
+for the mobile soft keyboard.
 
 ### Chat live updates
 

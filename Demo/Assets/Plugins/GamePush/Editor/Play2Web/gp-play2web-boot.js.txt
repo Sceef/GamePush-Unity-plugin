@@ -315,6 +315,25 @@
   function shouldHide(method) { return /Close$|Resume$/.test(method || ""); }
 
   var announcedReady = false;
+  var originWarned = false;
+  function warnOriginIfNeeded(gp) {
+    if (originWarned || !gp) return;
+    var allowed = gp.isAllowedOrigin;
+    var isDev = gp.isDev;
+    if (allowed !== false && isDev !== false) return;
+    originWarned = true;
+    var origin = (location.origin || "") + "/";
+    var projectId = (cfg && cfg.projectId) || "";
+    var panel = "https://gamepush.com/panel/projects/" + projectId + "/origins";
+    var msg = allowed === false
+      ? "This origin is not allowed: " + origin + " Add it in Allowed Origins and enable it."
+      : "This origin is allowed, but the Dev checkbox is not set. Enable Dev in Allowed Origins to use test ads, payments, and developer tools.";
+    console.warn("[Play2Web]", msg);
+    send({ type: "warn", arg: msg });
+    console.warn("[Play2Web]", panel);
+    send({ type: "warn", arg: panel });
+  }
+
   function emitReady() {
     if (!gpRef) return;
     if (!announcedReady) {
@@ -348,6 +367,7 @@
       bridge = gp;
       send({ type: "log", arg: "GamePushUnity ctor: " + err });
     }
+    warnOriginIfNeeded(gp);
     // Ready is announced only once the bridge exists, otherwise the first calls Unity makes on
     // connect would look for methods on the raw SDK and be dropped as missing.
     emitReady();

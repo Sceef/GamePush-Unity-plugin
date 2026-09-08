@@ -11,7 +11,13 @@ namespace GamePushEditor.Overlays
     /// </summary>
     internal static class GP_OverlayUIFactory
     {
-        internal static GP_OverlaySkin Skin => GP_OverlaySkin.Instance;
+        static GP_OverlaySkin _skin;
+
+        internal static GP_OverlaySkin Skin
+        {
+            get => _skin != null ? _skin : GP_OverlaySkin.Instance;
+            set => _skin = value;
+        }
 
         internal static RectTransform Rect(string name, Transform parent)
         {
@@ -77,6 +83,8 @@ namespace GamePushEditor.Overlays
             var image = Panel(name, parent, background, Skin.buttonSprite);
             var button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = Skin.ButtonColors(background);
 
             labelText = Text("Label", image.transform, label, Skin.bodySize, Skin.text,
                 TextAlignmentOptions.Center);
@@ -84,16 +92,37 @@ namespace GamePushEditor.Overlays
             return button;
         }
 
-        internal static Button IconButton(string name, Transform parent, string glyph, Color background)
+        internal static Button IconButton(string name, Transform parent, string glyph, Color background,
+            float size = -1f)
         {
             var button = Button(name, parent, glyph, background, out _);
-            Size(button.GetComponent<RectTransform>(), new Vector2(72f, 72f));
+            size = size > 0f ? size : Skin.compactControlHeight;
+            Size(button.GetComponent<RectTransform>(), new Vector2(size, size));
             var element = button.gameObject.AddComponent<LayoutElement>();
-            element.minWidth = 72f;
-            element.preferredWidth = 72f;
-            element.minHeight = 72f;
-            element.preferredHeight = 72f;
+            element.minWidth = size;
+            element.preferredWidth = size;
+            element.minHeight = size;
+            element.preferredHeight = size;
             return button;
+        }
+
+        internal static Image Divider(string name, Transform parent, bool vertical = false)
+        {
+            var divider = Panel(name, parent, Skin.border);
+            if (vertical)
+                Element(divider.gameObject, minWidth: 1f, preferredWidth: 1f, flexibleHeight: 1f);
+            else
+                Element(divider.gameObject, minHeight: 1f, preferredHeight: 1f, flexibleWidth: 1f);
+            divider.raycastTarget = false;
+            return divider;
+        }
+
+        internal static void StyleSelectable(Selectable selectable, Color normal)
+        {
+            if (selectable == null)
+                return;
+            selectable.transition = Selectable.Transition.ColorTint;
+            selectable.colors = Skin.ButtonColors(normal);
         }
 
         internal static RectTransform Size(RectTransform rect, Vector2 size)

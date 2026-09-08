@@ -76,10 +76,11 @@ namespace GamePush.Overlays.Widgets
             var availableWidth = Mathf.Max(0f, parentSize.x - insetX - padding.x * 2f);
             var availableHeight = Mathf.Max(0f, parentSize.y - insetY - padding.y * 2f);
 
-            var height = Mathf.Clamp(availableHeight, Mathf.Min(minSize.y, availableHeight), maxSize.y);
-            var width = Mathf.Clamp(availableWidth, Mathf.Min(minSize.x, availableWidth), maxSize.x);
-            if (maxAspect > 0f)
-                width = Mathf.Min(width, height * maxAspect);
+            var wideThreshold = GP_OverlaySkin.Instance.wideThreshold;
+            var size = CalculatePanelSize(new Vector2(availableWidth, availableHeight), minSize, maxSize,
+                maxAspect, wideThreshold);
+            var width = size.x;
+            var height = size.y;
 
             Rect.anchorMin = new Vector2(0.5f, 0.5f);
             Rect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -90,6 +91,46 @@ namespace GamePush.Overlays.Widgets
             var mode = GetComponent<GP_OverlayLayoutMode>();
             if (mode != null)
                 mode.Evaluate(width, height);
+        }
+
+        /// <summary>Applies the same sizing math to a simulated viewport without reading Screen.safeArea.</summary>
+        public void ApplyForPreview(Vector2 viewportSize)
+        {
+            if (Rect == null || viewportSize.x <= 0f || viewportSize.y <= 0f)
+                return;
+            var available = new Vector2(
+                Mathf.Max(0f, viewportSize.x - padding.x * 2f),
+                Mathf.Max(0f, viewportSize.y - padding.y * 2f));
+            var size = CalculatePanelSize(available, minSize, maxSize, maxAspect,
+                GP_OverlaySkin.Instance.wideThreshold);
+
+            Rect.anchorMin = new Vector2(0.5f, 0.5f);
+            Rect.anchorMax = new Vector2(0.5f, 0.5f);
+            Rect.pivot = new Vector2(0.5f, 0.5f);
+            Rect.sizeDelta = size;
+            Rect.anchoredPosition = Vector2.zero;
+
+            var mode = GetComponent<GP_OverlayLayoutMode>();
+            if (mode != null)
+                mode.Evaluate(size.x, size.y);
+        }
+
+        public static Vector2 CalculatePanelSize(Vector2 available, Vector2 minimum, Vector2 maximum,
+            float aspectLimit, float wideThreshold)
+        {
+            var height = Mathf.Clamp(available.y, Mathf.Min(minimum.y, available.y), maximum.y);
+            var width = Mathf.Clamp(available.x, Mathf.Min(minimum.x, available.x), maximum.x);
+
+            // Wide screens should use a wide modal instead of a tall portrait modal with empty
+            // margins. Portrait keeps the available height; landscape approaches aspectLimit.
+            if (available.y > 0f && available.x / available.y >= wideThreshold && aspectLimit >= wideThreshold)
+            {
+                height = Mathf.Max(Mathf.Min(minimum.y, available.y),
+                    Mathf.Min(height, width / Mathf.Max(aspectLimit, 0.01f)));
+            }
+            if (aspectLimit > 0f)
+                width = Mathf.Min(width, height * aspectLimit);
+            return new Vector2(width, height);
         }
     }
 }

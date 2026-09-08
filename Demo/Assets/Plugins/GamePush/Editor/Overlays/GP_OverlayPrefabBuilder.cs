@@ -22,23 +22,33 @@ namespace GamePushEditor.Overlays
         const string ResourcesFolder = PluginFolder + "/Resources/GamePush";
         const string OverlaysFolder = ResourcesFolder + "/Overlays";
         const string RowsFolder = OverlaysFolder + "/Rows";
+        const string GeneratedFolder = OverlaysFolder + "/Generated";
+        const string RoundedSpritePath = GeneratedFolder + "/Rounded12.png";
         const string SkinPath = ResourcesFolder + "/GP_OverlaySkin.asset";
 
-        [MenuItem("GamePush/Overlays/Rebuild Default Prefabs", false, 200)]
         public static void RebuildMenu()
         {
             if (!EnsureTextMeshPro())
+                return;
+            if (!EditorUtility.DisplayDialog("GamePush",
+                    "Rebuild all default overlay prefabs?\n\n" +
+                    "Assets inside Resources/GamePush/Overlays will be overwritten. Custom copies are not affected.",
+                    "Rebuild", "Cancel"))
                 return;
             Rebuild();
             EditorUtility.DisplayDialog("GamePush",
                 "Default overlay prefabs rebuilt in\n" + OverlaysFolder, "OK");
         }
 
-        /// <summary>Rebuilds silently; safe to call from the setup window.</summary>
-        public static void Rebuild()
+        public static GP_OverlaySkin DefaultSkin => LoadOrCreateSkin();
+
+        /// <summary>Rebuilds silently. Callers are responsible for confirming destructive changes.</summary>
+        public static void Rebuild(GP_OverlaySkin selectedSkin = null)
         {
             EnsureFolders();
-            var skin = LoadOrCreateSkin();
+            var skin = selectedSkin != null ? selectedSkin : LoadOrCreateSkin();
+            GP_OverlayUIFactory.Skin = skin;
+            EnsureDefaultSprites(skin);
 
             skin.achievementRow = Save(BuildAchievementRow(), RowsFolder + "/AchievementRow.prefab");
             skin.leaderboardRow = Save(BuildLeaderboardRow(), RowsFolder + "/LeaderboardRow.prefab");
@@ -47,32 +57,101 @@ namespace GamePushEditor.Overlays
             skin.gameCard = Save(BuildGameCard(), RowsFolder + "/GameCard.prefab");
             skin.feedbackRow = Save(BuildFeedbackRow(), RowsFolder + "/FeedbackRow.prefab");
 
-            SetScreen(skin, GP_OverlayKind.Confirm, Save(BuildConfirm(), OverlaysFolder + "/Confirm.prefab"),
-                1.6f, new Vector2(420f, 260f), new Vector2(820f, 620f));
-            SetScreen(skin, GP_OverlayKind.Achievements,
-                Save(BuildAchievements(), OverlaysFolder + "/Achievements.prefab"),
-                1f, new Vector2(360f, 400f), new Vector2(1400f, 1800f));
-            SetScreen(skin, GP_OverlayKind.Leaderboard,
-                Save(BuildLeaderboard(), OverlaysFolder + "/Leaderboard.prefab"),
-                1.2f, new Vector2(360f, 400f), new Vector2(1400f, 1800f));
-            SetScreen(skin, GP_OverlayKind.Chat, Save(BuildChat(), OverlaysFolder + "/Chat.prefab"),
-                1.4f, new Vector2(360f, 400f), new Vector2(1600f, 1800f));
-            SetScreen(skin, GP_OverlayKind.Document, Save(BuildDocument(), OverlaysFolder + "/Document.prefab"),
-                1.1f, new Vector2(360f, 400f), new Vector2(1100f, 1800f));
-            SetScreen(skin, GP_OverlayKind.GamesCollections,
-                Save(BuildGamesCollections(), OverlaysFolder + "/GamesCollections.prefab"),
-                1f, new Vector2(360f, 400f), new Vector2(1400f, 1800f));
-            SetScreen(skin, GP_OverlayKind.Feedbacks, Save(BuildFeedbacks(), OverlaysFolder + "/Feedbacks.prefab"),
-                1.4f, new Vector2(360f, 400f), new Vector2(1600f, 1800f));
-            SetScreen(skin, GP_OverlayKind.AdCountdown,
-                Save(BuildAdCountdown(), OverlaysFolder + "/AdCountdown.prefab"),
-                1.6f, new Vector2(360f, 220f), new Vector2(720f, 480f));
-            SetScreen(skin, GP_OverlayKind.AdFailed, Save(BuildAdFailed(), OverlaysFolder + "/AdFailed.prefab"),
-                1.6f, new Vector2(360f, 220f), new Vector2(760f, 520f));
+            foreach (GP_OverlayKind kind in System.Enum.GetValues(typeof(GP_OverlayKind)))
+            {
+                var prefab = Save(BuildScreen(kind), OverlaysFolder + "/" + kind + ".prefab");
+                ConfigureScreen(skin, kind, prefab);
+            }
 
             EditorUtility.SetDirty(skin);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+        }
+
+        public static void RebuildScreen(GP_OverlayKind kind, GP_OverlaySkin selectedSkin = null)
+        {
+            EnsureFolders();
+            var skin = selectedSkin != null ? selectedSkin : LoadOrCreateSkin();
+            GP_OverlayUIFactory.Skin = skin;
+            EnsureDefaultSprites(skin);
+            BuildRowsFor(kind, skin);
+            var prefab = Save(BuildScreen(kind), OverlaysFolder + "/" + kind + ".prefab");
+            ConfigureScreen(skin, kind, prefab);
+            EditorUtility.SetDirty(skin);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
+
+        /// <summary>Creates a transient hierarchy for an editor preview. The caller owns the object.</summary>
+        public static GameObject BuildPreview(GP_OverlayKind kind, GP_OverlaySkin selectedSkin)
+        {
+            GP_OverlayUIFactory.Skin = selectedSkin != null ? selectedSkin : LoadOrCreateSkin();
+            return BuildScreen(kind);
+        }
+
+        static GameObject BuildScreen(GP_OverlayKind kind)
+        {
+            switch (kind)
+            {
+                case GP_OverlayKind.Confirm: return BuildConfirm();
+                case GP_OverlayKind.Achievements: return BuildAchievements();
+                case GP_OverlayKind.Leaderboard: return BuildLeaderboard();
+                case GP_OverlayKind.Chat: return BuildChat();
+                case GP_OverlayKind.Document: return BuildDocument();
+                case GP_OverlayKind.GamesCollections: return BuildGamesCollections();
+                case GP_OverlayKind.Feedbacks: return BuildFeedbacks();
+                case GP_OverlayKind.AdCountdown: return BuildAdCountdown();
+                case GP_OverlayKind.AdFailed: return BuildAdFailed();
+                default: throw new System.ArgumentOutOfRangeException(nameof(kind), kind, null);
+            }
+        }
+
+        static void BuildRowsFor(GP_OverlayKind kind, GP_OverlaySkin skin)
+        {
+            if (kind == GP_OverlayKind.Achievements)
+                skin.achievementRow = Save(BuildAchievementRow(), RowsFolder + "/AchievementRow.prefab");
+            if (kind == GP_OverlayKind.Leaderboard)
+                skin.leaderboardRow = Save(BuildLeaderboardRow(), RowsFolder + "/LeaderboardRow.prefab");
+            if (kind == GP_OverlayKind.Chat || kind == GP_OverlayKind.Feedbacks)
+                skin.messageRow = Save(BuildMessageRow(), RowsFolder + "/MessageRow.prefab");
+            if (kind == GP_OverlayKind.Chat)
+                skin.memberRow = Save(BuildMemberRow(), RowsFolder + "/MemberRow.prefab");
+            if (kind == GP_OverlayKind.GamesCollections)
+                skin.gameCard = Save(BuildGameCard(), RowsFolder + "/GameCard.prefab");
+            if (kind == GP_OverlayKind.Feedbacks)
+                skin.feedbackRow = Save(BuildFeedbackRow(), RowsFolder + "/FeedbackRow.prefab");
+        }
+
+        static void ConfigureScreen(GP_OverlaySkin skin, GP_OverlayKind kind, GameObject prefab)
+        {
+            switch (kind)
+            {
+                case GP_OverlayKind.Confirm:
+                    SetScreen(skin, kind, prefab, 1.6f, new Vector2(420f, 260f), new Vector2(820f, 620f));
+                    break;
+                case GP_OverlayKind.Achievements:
+                    SetScreen(skin, kind, prefab, 1.55f, new Vector2(360f, 400f), new Vector2(1500f, 1500f));
+                    break;
+                case GP_OverlayKind.Leaderboard:
+                    SetScreen(skin, kind, prefab, 1.45f, new Vector2(360f, 400f), new Vector2(1450f, 1500f));
+                    break;
+                case GP_OverlayKind.Chat:
+                case GP_OverlayKind.Feedbacks:
+                    SetScreen(skin, kind, prefab, 1.65f, new Vector2(360f, 400f), new Vector2(1650f, 1500f));
+                    break;
+                case GP_OverlayKind.Document:
+                    SetScreen(skin, kind, prefab, 1.1f, new Vector2(360f, 400f), new Vector2(1100f, 1800f));
+                    break;
+                case GP_OverlayKind.GamesCollections:
+                    SetScreen(skin, kind, prefab, 1.65f, new Vector2(360f, 400f), new Vector2(1550f, 1500f));
+                    break;
+                case GP_OverlayKind.AdCountdown:
+                    SetScreen(skin, kind, prefab, 1.6f, new Vector2(360f, 220f), new Vector2(720f, 480f));
+                    break;
+                case GP_OverlayKind.AdFailed:
+                    SetScreen(skin, kind, prefab, 1.6f, new Vector2(360f, 220f), new Vector2(760f, 520f));
+                    break;
+            }
         }
 
         /// <summary>
@@ -104,6 +183,7 @@ namespace GamePushEditor.Overlays
             EnsureFolder(ResourcesFolder);
             EnsureFolder(OverlaysFolder);
             EnsureFolder(RowsFolder);
+            EnsureFolder(GeneratedFolder);
         }
 
         static void EnsureFolder(string path)
@@ -126,6 +206,56 @@ namespace GamePushEditor.Overlays
             skin = ScriptableObject.CreateInstance<GP_OverlaySkin>();
             AssetDatabase.CreateAsset(skin, SkinPath);
             return skin;
+        }
+
+        static void EnsureDefaultSprites(GP_OverlaySkin skin)
+        {
+            if (skin == null)
+                return;
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(RoundedSpritePath);
+            if (sprite == null)
+            {
+                const int size = 32;
+                const float radius = 8f;
+                var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+                texture.name = "GamePush Rounded 12";
+                for (var y = 0; y < size; y++)
+                {
+                    for (var x = 0; x < size; x++)
+                    {
+                        var dx = Mathf.Max(radius - x - 0.5f, 0f, x + 0.5f - (size - radius));
+                        var dy = Mathf.Max(radius - y - 0.5f, 0f, y + 0.5f - (size - radius));
+                        var distance = Mathf.Sqrt(dx * dx + dy * dy);
+                        var alpha = Mathf.Clamp01(radius - distance + 0.5f);
+                        texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                    }
+                }
+                texture.Apply();
+                File.WriteAllBytes(Path.Combine(Path.GetDirectoryName(Application.dataPath) ?? "", RoundedSpritePath),
+                    texture.EncodeToPNG());
+                Object.DestroyImmediate(texture);
+                AssetDatabase.ImportAsset(RoundedSpritePath, ImportAssetOptions.ForceSynchronousImport);
+                var importer = AssetImporter.GetAtPath(RoundedSpritePath) as TextureImporter;
+                if (importer != null)
+                {
+                    importer.textureType = TextureImporterType.Sprite;
+                    importer.spriteImportMode = SpriteImportMode.Single;
+                    importer.spriteBorder = new Vector4(radius, radius, radius, radius);
+                    importer.mipmapEnabled = false;
+                    importer.alphaIsTransparency = true;
+                    importer.SaveAndReimport();
+                }
+                sprite = AssetDatabase.LoadAssetAtPath<Sprite>(RoundedSpritePath);
+            }
+
+            if (sprite == null)
+                return;
+            if (skin.panelSprite == null)
+                skin.panelSprite = sprite;
+            if (skin.rowSprite == null)
+                skin.rowSprite = sprite;
+            if (skin.buttonSprite == null)
+                skin.buttonSprite = sprite;
         }
 
         static void SetScreen(GP_OverlaySkin skin, GP_OverlayKind kind, GameObject prefab, float maxAspect,
@@ -191,14 +321,16 @@ namespace GamePushEditor.Overlays
 
             var header = Panel("Header", panel.transform, Skin.header);
             shell.header = (RectTransform)header.transform;
-            Horizontal(header.gameObject, new RectOffset(24, 16, 8, 8), 12f);
-            Element(header.gameObject, minHeight: 96f, preferredHeight: 96f);
+            Horizontal(header.gameObject,
+                new RectOffset((int)Skin.contentPadding, (int)Skin.spacing, (int)Skin.spacingSmall,
+                    (int)Skin.spacingSmall), Skin.spacing);
+            Element(header.gameObject, minHeight: 72f, preferredHeight: 72f, flexibleHeight: 0f);
 
             shell.title = Text("Title", header.transform, "", Skin.titleSize, Skin.text,
                 TextAlignmentOptions.MidlineLeft);
             Element(shell.title.gameObject, flexibleWidth: 1f);
 
-            shell.close = IconButton("Close", header.transform, "✕", Skin.row);
+            shell.close = IconButton("Close", header.transform, "X", Skin.row);
 
             var body = Rect("Body", panel.transform);
             shell.body = body;
@@ -262,31 +394,72 @@ namespace GamePushEditor.Overlays
             var shell = BuildShell("Achievements");
             var view = shell.root.AddComponent<GP_AchievementsView>();
             Wire(view, shell);
-            view.layoutMode = shell.panel.GetComponent<GP_OverlayLayoutMode>();
+            var mode = shell.panel.GetComponent<GP_OverlayLayoutMode>();
+            view.layoutMode = mode;
 
             view.counterLabel = Text("Counter", shell.header, "", Skin.captionSize, Skin.textMuted,
                 TextAlignmentOptions.MidlineRight);
             view.counterLabel.transform.SetSiblingIndex(1);
             Element(view.counterLabel.gameObject, minWidth: 120f, preferredWidth: 140f);
 
-            // Wide puts the group filter in a left rail; Compact keeps it as a chip strip on top.
+            Vertical(shell.body.gameObject, new RectOffset(0, 0, 0, 0), 0f);
+
+            var compactHost = Rect("CompactGroups", shell.body);
+            Element(compactHost.gameObject, minHeight: 88f, preferredHeight: 88f);
+            mode.compactOnly.Add(compactHost.gameObject);
+            var compactScroll = compactHost.gameObject.AddComponent<ScrollRect>();
+            compactScroll.horizontal = true;
+            compactScroll.vertical = false;
+            compactScroll.movementType = ScrollRect.MovementType.Clamped;
+            var compactViewport = Rect("Viewport", compactHost);
+            compactViewport.gameObject.AddComponent<RectMask2D>();
+            var compactViewportImage = compactViewport.gameObject.AddComponent<Image>();
+            compactViewportImage.color = Color.clear;
+            var compactRail = Rect("GroupStrip", compactViewport);
+            compactRail.anchorMin = new Vector2(0f, 0f);
+            compactRail.anchorMax = new Vector2(0f, 1f);
+            compactRail.pivot = new Vector2(0f, 0.5f);
+            var compactLayout = Horizontal(compactRail.gameObject, new RectOffset(12, 12, 8, 8),
+                Skin.spacingSmall);
+            compactLayout.childForceExpandHeight = true;
+            var compactFitter = compactRail.gameObject.AddComponent<ContentSizeFitter>();
+            compactFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            compactScroll.viewport = compactViewport;
+            compactScroll.content = compactRail;
+            view.compactGroupRail = compactRail;
+            var compactTemplate = Button("GroupButtonTemplate", compactRail, "", Skin.row, out _);
+            Element(compactTemplate.gameObject, minWidth: 160f, minHeight: Skin.controlHeight,
+                preferredHeight: Skin.controlHeight);
+            compactTemplate.gameObject.SetActive(false);
+            view.compactGroupButtonTemplate = compactTemplate;
+
             var columns = Rect("Columns", shell.body);
             Horizontal(columns.gameObject, new RectOffset(0, 0, 0, 0), 0f);
+            Element(columns.gameObject, flexibleHeight: 1f);
 
-            var rail = Rect("GroupRail", columns);
-            Vertical(rail.gameObject, new RectOffset(12, 12, 12, 12), 8f);
-            Element(rail.gameObject, minWidth: 240f, preferredWidth: 260f);
+            var wideHost = Rect("WideGroups", columns);
+            Element(wideHost.gameObject, minWidth: 240f, preferredWidth: 260f);
+            mode.wideOnly.Add(wideHost.gameObject);
+
+            var rail = Rect("GroupRail", wideHost);
+            Vertical(rail.gameObject, new RectOffset(12, 12, 12, 12), Skin.spacingSmall);
             var railFitter = rail.gameObject.AddComponent<ContentSizeFitter>();
             railFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
             view.groupRail = rail;
 
             var template = Button("GroupButtonTemplate", rail, "", Skin.row, out _);
-            Element(template.gameObject, minHeight: 72f, preferredHeight: 72f);
+            Element(template.gameObject, minWidth: 160f, minHeight: Skin.controlHeight,
+                preferredHeight: Skin.controlHeight);
             template.gameObject.SetActive(false);
             view.groupButtonTemplate = template;
 
             var list = ScrollList("List", columns, true, 12f);
             view.list = list;
+            var achievementGrid = list.content.GetComponent<GP_FlexibleGrid>();
+            view.grid = achievementGrid;
+            achievementGrid.minCellWidth = 420f;
+            achievementGrid.compactColumns = 2;
+            achievementGrid.wideColumns = 2;
 
             return shell.root;
         }
@@ -307,7 +480,7 @@ namespace GamePushEditor.Overlays
             view.list = ScrollList("List", shell.body, false);
 
             var holder = Rect("SelfRow", shell.body);
-            Element(holder.gameObject, minHeight: 108f, preferredHeight: 108f);
+            Element(holder.gameObject, minHeight: 96f, preferredHeight: 96f, flexibleHeight: 0f);
             view.selfRowHolder = holder.gameObject;
             var self = LeaderboardRowHierarchy(holder);
             Stretch((RectTransform)self.transform);
@@ -325,7 +498,7 @@ namespace GamePushEditor.Overlays
             var mode = shell.panel.GetComponent<GP_OverlayLayoutMode>();
             view.layoutMode = mode;
 
-            view.membersToggle = IconButton("MembersToggle", shell.header, "☰", Skin.row);
+            view.membersToggle = IconButton("MembersToggle", shell.header, "P", Skin.row);
             view.membersToggle.transform.SetSiblingIndex(1);
 
             Vertical(shell.body.gameObject, new RectOffset(0, 0, 0, 0), 0f);
@@ -334,27 +507,30 @@ namespace GamePushEditor.Overlays
             Horizontal(columns.gameObject, new RectOffset(0, 0, 0, 0), 0f);
             Element(columns.gameObject, flexibleHeight: 1f);
 
-            view.messageList = ScrollList("Messages", columns, false, 10f);
+            var messages = Rect("MessagesPanel", columns);
+            Vertical(messages.gameObject, new RectOffset(0, 0, 0, 0), 0f);
+            Element(messages.gameObject, flexibleWidth: 2f, flexibleHeight: 1f);
+            view.messagesPanel = messages.gameObject;
+            view.messageList = ScrollList("Messages", messages, false, Skin.spacingSmall);
 
             var members = Rect("Members", columns);
             Background(members, Skin.header);
             Vertical(members.gameObject, new RectOffset(0, 0, 0, 0), 0f);
-            Element(members.gameObject, minWidth: 300f, preferredWidth: 340f);
+            Element(members.gameObject, minWidth: 260f, preferredWidth: 320f, flexibleWidth: 1f);
             view.membersPanel = members.gameObject;
             view.memberList = ScrollList("MemberList", members, false);
-            mode.wideOnly.Add(members.gameObject);
 
             var composer = Rect("Composer", shell.body);
             Background(composer, Skin.header);
-            Horizontal(composer.gameObject, new RectOffset(16, 16, 12, 12), 12f);
-            Element(composer.gameObject, minHeight: 104f, preferredHeight: 104f);
+            Horizontal(composer.gameObject, new RectOffset(16, 16, 12, 12), Skin.spacing);
+            Element(composer.gameObject, minHeight: 88f, preferredHeight: 88f, flexibleHeight: 0f);
             view.composer = composer;
 
             view.input = InputField("Input", composer);
             Element(view.input.gameObject, flexibleWidth: 1f);
 
             view.sendButton = Button("Send", composer, GP_OverlayStrings.Send, Skin.accent, out _);
-            Element(view.sendButton.gameObject, minWidth: 180f, preferredWidth: 200f);
+            Element(view.sendButton.gameObject, minWidth: 140f, preferredWidth: 180f);
 
             return shell.root;
         }
@@ -410,6 +586,7 @@ namespace GamePushEditor.Overlays
             view.list = list;
             view.grid = list.content.GetComponent<GP_FlexibleGrid>();
             view.grid.cellRatio = 1.25f;
+            view.grid.minCellWidth = 280f;
 
             return shell.root;
         }
@@ -422,7 +599,7 @@ namespace GamePushEditor.Overlays
             var mode = shell.panel.GetComponent<GP_OverlayLayoutMode>();
             view.layoutMode = mode;
 
-            view.backButton = IconButton("Back", shell.header, "‹", Skin.row);
+            view.backButton = IconButton("Back", shell.header, "<", Skin.row);
             view.backButton.transform.SetSiblingIndex(0);
             view.newButton = IconButton("New", shell.header, "+", Skin.accent);
             view.newButton.transform.SetSiblingIndex(2);
@@ -450,13 +627,14 @@ namespace GamePushEditor.Overlays
 
             var composer = Rect("Composer", threadPanel);
             Horizontal(composer.gameObject, new RectOffset(16, 16, 12, 12), 12f);
-            Element(composer.gameObject, minHeight: 104f, preferredHeight: 104f);
+            Element(composer.gameObject, minHeight: 88f, preferredHeight: 88f, flexibleHeight: 0f);
+            view.composer = composer;
 
             view.input = InputField("Input", composer);
             Element(view.input.gameObject, flexibleWidth: 1f);
 
             view.sendButton = Button("Send", composer, GP_OverlayStrings.Send, Skin.accent, out _);
-            Element(view.sendButton.gameObject, minWidth: 180f, preferredWidth: 200f);
+            Element(view.sendButton.gameObject, minWidth: 140f, preferredWidth: 180f);
 
             return shell.root;
         }
@@ -519,6 +697,7 @@ namespace GamePushEditor.Overlays
             row.background = root.AddComponent<Image>();
             row.background.color = Skin.row;
             row.background.sprite = Skin.rowSprite;
+            row.background.type = Skin.rowSprite != null ? Image.Type.Sliced : Image.Type.Simple;
 
             Horizontal(root, new RectOffset(16, 16, 16, 16), 16f);
 
@@ -541,10 +720,10 @@ namespace GamePushEditor.Overlays
             row.progressLabel = Text("Progress", text, "", Skin.captionSize, Skin.textMuted,
                 TextAlignmentOptions.MidlineRight);
 
-            row.lockedBadge = Text("Locked", rect, "🔒", Skin.captionSize, Skin.textMuted,
+            row.lockedBadge = Text("Locked", rect, "L", Skin.captionSize, Skin.textMuted,
                 TextAlignmentOptions.Center).gameObject;
             Element(row.lockedBadge, minWidth: 48f, preferredWidth: 48f);
-            row.unlockedBadge = Text("Unlocked", rect, "✓", Skin.captionSize, Skin.accent,
+            row.unlockedBadge = Text("Unlocked", rect, "U", Skin.captionSize, Skin.accent,
                 TextAlignmentOptions.Center).gameObject;
             Element(row.unlockedBadge, minWidth: 48f, preferredWidth: 48f);
 
@@ -571,6 +750,7 @@ namespace GamePushEditor.Overlays
             row.background = rect.gameObject.AddComponent<Image>();
             row.background.color = Skin.row;
             row.background.sprite = Skin.rowSprite;
+            row.background.type = Skin.rowSprite != null ? Image.Type.Sliced : Image.Type.Simple;
 
             Horizontal(rect.gameObject, new RectOffset(16, 16, 8, 8), 16f);
 
@@ -589,12 +769,12 @@ namespace GamePushEditor.Overlays
 
             var template = Text("ExtraTemplate", extras, "", Skin.captionSize, Skin.textMuted,
                 TextAlignmentOptions.Center);
-            Element(template.gameObject, minWidth: 120f, preferredWidth: 140f);
+            Element(template.gameObject, minWidth: 80f, preferredWidth: 110f);
             template.gameObject.SetActive(false);
             row.extraColumnTemplate = template;
 
             row.scoreLabel = Text("Score", rect, "", Skin.bodySize, Skin.text, TextAlignmentOptions.MidlineRight);
-            Element(row.scoreLabel.gameObject, minWidth: 160f, preferredWidth: 180f);
+            Element(row.scoreLabel.gameObject, minWidth: 120f, preferredWidth: 150f);
 
             return row;
         }
@@ -633,7 +813,7 @@ namespace GamePushEditor.Overlays
 
             row.textLabel = Text("Text", bubbleImage.transform, "", Skin.bodySize, Skin.text);
 
-            row.deleteButton = IconButton("Delete", rect, "✕", Skin.rowAlt);
+            row.deleteButton = IconButton("Delete", rect, "X", Skin.rowAlt);
             row.deleteButton.gameObject.SetActive(false);
 
             return root;
@@ -649,6 +829,7 @@ namespace GamePushEditor.Overlays
             row.background = root.AddComponent<Image>();
             row.background.color = Skin.row;
             row.background.sprite = Skin.rowSprite;
+            row.background.type = Skin.rowSprite != null ? Image.Type.Sliced : Image.Type.Simple;
             Horizontal(root, new RectOffset(12, 12, 8, 8), 12f);
 
             row.onlineDot = Panel("Online", rect, Skin.textMuted);
@@ -656,7 +837,7 @@ namespace GamePushEditor.Overlays
             Element(row.onlineDot.gameObject, minWidth: 16f, preferredWidth: 16f, minHeight: 16f,
                 preferredHeight: 16f);
 
-            row.avatar = Avatar("Avatar", rect, 64f);
+            row.avatar = Avatar("Avatar", rect, 56f);
 
             row.nameLabel = Text("Name", rect, "", Skin.bodySize, Skin.text, TextAlignmentOptions.MidlineLeft);
             Element(row.nameLabel.gameObject, flexibleWidth: 1f);
@@ -665,8 +846,8 @@ namespace GamePushEditor.Overlays
                 TextAlignmentOptions.Center);
             Element(row.stateLabel.gameObject, minWidth: 48f, preferredWidth: 48f);
 
-            row.muteButton = IconButton("Mute", rect, "🔇", Skin.rowAlt);
-            row.kickButton = IconButton("Kick", rect, "⨯", Skin.danger);
+            row.muteButton = IconButton("Mute", rect, "M", Skin.rowAlt, Skin.compactControlHeight);
+            row.kickButton = IconButton("Kick", rect, "X", Skin.danger, Skin.compactControlHeight);
 
             return root;
         }
@@ -681,6 +862,7 @@ namespace GamePushEditor.Overlays
             card.background = root.AddComponent<Image>();
             card.background.color = Skin.row;
             card.background.sprite = Skin.rowSprite;
+            card.background.type = Skin.rowSprite != null ? Image.Type.Sliced : Image.Type.Simple;
             card.button = root.AddComponent<Button>();
             card.button.targetGraphic = card.background;
 
@@ -708,6 +890,7 @@ namespace GamePushEditor.Overlays
             row.background = root.AddComponent<Image>();
             row.background.color = Skin.row;
             row.background.sprite = Skin.rowSprite;
+            row.background.type = Skin.rowSprite != null ? Image.Type.Sliced : Image.Type.Simple;
             row.button = root.AddComponent<Button>();
             row.button.targetGraphic = row.background;
 
@@ -733,9 +916,10 @@ namespace GamePushEditor.Overlays
 
         static TMP_InputField InputField(string name, Transform parent)
         {
-            var background = Panel(name, parent, Skin.row, Skin.rowSprite);
+            var background = Panel(name, parent, Skin.input, Skin.rowSprite);
             var field = background.gameObject.AddComponent<TMP_InputField>();
             field.targetGraphic = background;
+            StyleSelectable(field, Skin.input);
             field.lineType = TMP_InputField.LineType.SingleLine;
 
             var viewport = Rect("TextArea", background.transform);

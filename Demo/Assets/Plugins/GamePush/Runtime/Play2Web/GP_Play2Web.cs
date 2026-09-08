@@ -274,6 +274,9 @@ namespace GamePush
                 case "log":
                     EmitLog(msg.arg);
                     break;
+                case "warn":
+                    EmitWarn(msg.arg);
+                    break;
             }
         }
 
@@ -465,6 +468,14 @@ namespace GamePush
             if (string.IsNullOrEmpty(message))
                 return;
             Debug.Log("[Play2Web] " + message);
+            Log?.Invoke(message);
+        }
+
+        static void EmitWarn(string message)
+        {
+            if (string.IsNullOrEmpty(message))
+                return;
+            Debug.LogWarning("[Play2Web] " + message);
             Log?.Invoke(message);
         }
 

@@ -15,6 +15,7 @@ namespace GamePush.Overlays.Views
         public LayoutElement contentLayout;
 
         public float maxTextWidth = 700f;
+        float _lastViewportWidth = -1f;
 
         public override void Bind(object args)
         {
@@ -24,13 +25,29 @@ namespace GamePush.Overlays.Views
             if (contentLabel != null)
                 contentLabel.text = "";
 
-            if (contentLayout != null)
-            {
-                contentLayout.preferredWidth = maxTextWidth;
-                contentLayout.flexibleWidth = 0f;
-            }
+            ApplyTextWidth();
 
             NativeDocuments.FetchForOverlay(data.type, data.format, OnLoaded, ShowError);
+        }
+
+        protected override void Update()
+        {
+            base.Update();
+            ApplyTextWidth();
+        }
+
+        void ApplyTextWidth()
+        {
+            if (contentLayout == null)
+                return;
+            var viewportWidth = scrollRect != null && scrollRect.viewport != null
+                ? scrollRect.viewport.rect.width
+                : maxTextWidth;
+            if (viewportWidth <= 0f || Mathf.Approximately(viewportWidth, _lastViewportWidth))
+                return;
+            _lastViewportWidth = viewportWidth;
+            contentLayout.preferredWidth = Mathf.Min(maxTextWidth, Mathf.Max(1f, viewportWidth - 64f));
+            contentLayout.flexibleWidth = 0f;
         }
 
         void OnLoaded(string content)

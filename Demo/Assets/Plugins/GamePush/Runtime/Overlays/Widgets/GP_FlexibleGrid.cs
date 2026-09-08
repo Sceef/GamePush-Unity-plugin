@@ -15,6 +15,9 @@ namespace GamePush.Overlays.Widgets
         public int compactColumns = 2;
         public int wideColumns = 4;
 
+        [Tooltip("When positive, column count is derived from available width and clamped by compact/wide columns.")]
+        public float minCellWidth = 0f;
+
         [Tooltip("Cell height divided by cell width.")]
         public float cellRatio = 1f;
 
@@ -52,7 +55,14 @@ namespace GamePush.Overlays.Widgets
             if (width <= 0f)
                 return;
 
-            var columns = _mode != null && _mode.Mode == GP_LayoutMode.Wide ? wideColumns : compactColumns;
+            var maxColumns = _mode != null && _mode.Mode == GP_LayoutMode.Wide ? wideColumns : compactColumns;
+            var columns = maxColumns;
+            if (minCellWidth > 0f)
+            {
+                var usable = width - _grid.padding.left - _grid.padding.right + _grid.spacing.x;
+                columns = Mathf.FloorToInt(usable / (minCellWidth + _grid.spacing.x));
+                columns = Mathf.Clamp(columns, 1, Mathf.Max(1, maxColumns));
+            }
             columns = Mathf.Max(1, columns);
             if (Mathf.Approximately(width, _lastWidth) && columns == _lastColumns)
                 return;

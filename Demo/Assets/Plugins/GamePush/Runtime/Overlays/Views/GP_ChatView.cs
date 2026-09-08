@@ -17,6 +17,7 @@ namespace GamePush.Overlays.Views
 
         [Header("Feed")]
         public GP_OverlayList messageList;
+        public GameObject messagesPanel;
 
         public GP_OverlayLayoutMode layoutMode;
 
@@ -45,6 +46,7 @@ namespace GamePush.Overlays.Views
             _args = args as GP_ChatArgs ?? new GP_ChatArgs();
             _messages.Clear();
             _index.Clear();
+            _membersVisible = false;
             messageList?.Clear();
 
             SetTitle(_args.scope == NativeChatScope.Feed ? GP_OverlayStrings.Feed : GP_OverlayStrings.Chat);
@@ -125,22 +127,7 @@ namespace GamePush.Overlays.Views
         /// <summary>Lifts the composer above the Android soft keyboard.</summary>
         void ApplyKeyboardInset()
         {
-            if (composer == null)
-                return;
-            var inset = 0f;
-            if (TouchScreenKeyboard.visible)
-            {
-                var area = TouchScreenKeyboard.area;
-                if (area.height > 0f && Screen.height > 0)
-                {
-                    var canvasHeight = Host != null && Host.Root != null ? Host.Root.rect.height : Screen.height;
-                    inset = area.height / Screen.height * canvasHeight;
-                }
-            }
-            if (Mathf.Approximately(inset, _keyboardInset))
-                return;
-            _keyboardInset = inset;
-            composer.anchoredPosition = new Vector2(composer.anchoredPosition.x, inset);
+            GP_OverlayKeyboardInset.Apply(composer, Host != null ? Host.Root : null, ref _keyboardInset);
         }
 
         void OnModeChanged(GP_LayoutMode mode) => ApplyMembersVisibility();
@@ -157,7 +144,14 @@ namespace GamePush.Overlays.Views
                 return;
             var wide = layoutMode != null && layoutMode.Mode == GP_LayoutMode.Wide;
             var channel = _args.scope == NativeChatScope.Channel;
-            membersPanel.SetActive(channel && (wide || _membersVisible));
+            if (membersToggle != null)
+                membersToggle.gameObject.SetActive(channel && !wide);
+            var showMembers = channel && (wide || _membersVisible);
+            membersPanel.SetActive(showMembers);
+            if (messagesPanel != null)
+                messagesPanel.SetActive(wide || !_membersVisible || !channel);
+            if (composer != null)
+                composer.gameObject.SetActive(wide || !_membersVisible || !channel);
         }
 
         void LoadPage(int offset, bool initial)

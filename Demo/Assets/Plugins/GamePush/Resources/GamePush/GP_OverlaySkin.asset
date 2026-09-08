@@ -15,46 +15,55 @@ MonoBehaviour:
   screens:
   - kind: 0
     prefab: {fileID: 3423782671076081325, guid: 1a435440d4db8a24ca5f4ec221265bae, type: 3}
+    customPrefab: {fileID: 0}
     maxAspect: 1.6
     minSize: {x: 420, y: 260}
     maxSize: {x: 820, y: 620}
   - kind: 1
     prefab: {fileID: 6165210278609672229, guid: e24bab73e44425c47918c328552f2d77, type: 3}
-    maxAspect: 1
+    customPrefab: {fileID: 0}
+    maxAspect: 1.55
     minSize: {x: 360, y: 400}
-    maxSize: {x: 1400, y: 1800}
+    maxSize: {x: 1500, y: 1500}
   - kind: 2
     prefab: {fileID: 6371546513107936225, guid: de9954c46154f784f929f0391e1a594c, type: 3}
-    maxAspect: 1.2
+    customPrefab: {fileID: 0}
+    maxAspect: 1.45
     minSize: {x: 360, y: 400}
-    maxSize: {x: 1400, y: 1800}
+    maxSize: {x: 1450, y: 1500}
   - kind: 3
     prefab: {fileID: 2645471141762823405, guid: ae51663ff4bddd74197361e1a5f7df87, type: 3}
-    maxAspect: 1.4
+    customPrefab: {fileID: 0}
+    maxAspect: 1.65
     minSize: {x: 360, y: 400}
-    maxSize: {x: 1600, y: 1800}
+    maxSize: {x: 1650, y: 1500}
   - kind: 4
     prefab: {fileID: 602077892840384774, guid: d753a2f824a289040aaa17a811c9d87a, type: 3}
+    customPrefab: {fileID: 0}
     maxAspect: 1.1
     minSize: {x: 360, y: 400}
     maxSize: {x: 1100, y: 1800}
   - kind: 5
     prefab: {fileID: 3752017666564685124, guid: b37eaef69d98f4f4c82162ead6b19019, type: 3}
-    maxAspect: 1
+    customPrefab: {fileID: 0}
+    maxAspect: 1.65
     minSize: {x: 360, y: 400}
-    maxSize: {x: 1400, y: 1800}
+    maxSize: {x: 1550, y: 1500}
   - kind: 6
     prefab: {fileID: 6578873346013120599, guid: 74b5a9f94b246f0459d117605304fa70, type: 3}
-    maxAspect: 1.4
+    customPrefab: {fileID: 0}
+    maxAspect: 1.65
     minSize: {x: 360, y: 400}
-    maxSize: {x: 1600, y: 1800}
+    maxSize: {x: 1650, y: 1500}
   - kind: 7
     prefab: {fileID: 8591605637771751125, guid: a7b4ac39f229f324ba4705f2ca161c4f, type: 3}
+    customPrefab: {fileID: 0}
     maxAspect: 1.6
     minSize: {x: 360, y: 220}
     maxSize: {x: 720, y: 480}
   - kind: 8
     prefab: {fileID: 7636877042054238124, guid: 23e6298f83c7c4046b58b29614cb0869, type: 3}
+    customPrefab: {fileID: 0}
     maxAspect: 1.6
     minSize: {x: 360, y: 220}
     maxSize: {x: 760, y: 520}
@@ -67,12 +76,23 @@ MonoBehaviour:
   referenceResolution: {x: 1080, y: 1920}
   screenPadding: {x: 48, y: 48}
   wideThreshold: 1.15
+  spacingSmall: 8
+  spacing: 16
+  spacingLarge: 24
+  contentPadding: 24
+  controlHeight: 64
+  compactControlHeight: 52
   backdrop: {r: 0, g: 0, b: 0, a: 0.65}
-  panel: {r: 0.11, g: 0.12, b: 0.15, a: 1}
-  header: {r: 0.15, g: 0.16, b: 0.21, a: 1}
-  row: {r: 0.16, g: 0.17, b: 0.22, a: 1}
-  rowAlt: {r: 0.19, g: 0.2, b: 0.26, a: 1}
-  accent: {r: 0.29, g: 0.56, b: 0.99, a: 1}
+  panel: {r: 0.055, g: 0.067, b: 0.078, a: 1}
+  header: {r: 0.075, g: 0.086, b: 0.098, a: 1}
+  row: {r: 0.09, g: 0.102, b: 0.114, a: 1}
+  rowAlt: {r: 0.115, g: 0.126, b: 0.14, a: 1}
+  input: {r: 0.065, g: 0.075, b: 0.086, a: 1}
+  border: {r: 0.22, g: 0.24, b: 0.27, a: 1}
+  hover: {r: 0.15, g: 0.17, b: 0.19, a: 1}
+  pressed: {r: 0.1, g: 0.46, b: 0.28, a: 1}
+  disabled: {r: 0.2, g: 0.21, b: 0.23, a: 0.75}
+  accent: {r: 0.1, g: 0.72, b: 0.39, a: 1}
   danger: {r: 0.9, g: 0.31, b: 0.31, a: 1}
   text: {r: 0.95, g: 0.96, b: 0.98, a: 1}
   textMuted: {r: 0.64, g: 0.67, b: 0.74, a: 1}
@@ -80,8 +100,8 @@ MonoBehaviour:
   titleSize: 42
   bodySize: 32
   captionSize: 26
-  panelSprite: {fileID: 0}
-  rowSprite: {fileID: 0}
-  buttonSprite: {fileID: 0}
+  panelSprite: {fileID: 21300000, guid: 5fcfda59914154145b6c5d6dc73f3831, type: 3}
+  rowSprite: {fileID: 21300000, guid: 5fcfda59914154145b6c5d6dc73f3831, type: 3}
+  buttonSprite: {fileID: 21300000, guid: 5fcfda59914154145b6c5d6dc73f3831, type: 3}
   avatarPlaceholder: {fileID: 0}
   iconPlaceholder: {fileID: 0}

@@ -29,6 +29,7 @@ namespace GamePush.Overlays.Views
         public TMP_InputField input;
         public Button sendButton;
         public Button backButton;
+        public RectTransform composer;
 
         public GP_OverlayLayoutMode layoutMode;
 
@@ -39,6 +40,7 @@ namespace GamePush.Overlays.Views
         bool _composingNew;
         bool _loadingMore;
         bool _canLoadMore;
+        float _keyboardInset;
 
         public override void Bind(object args)
         {
@@ -102,6 +104,17 @@ namespace GamePush.Overlays.Views
             GP_Feedbacks.NativeFireCloseList();
         }
 
+        protected override void Update()
+        {
+            base.Update();
+            ApplyKeyboardInset();
+        }
+
+        void ApplyKeyboardInset()
+        {
+            GP_OverlayKeyboardInset.Apply(composer, Host != null ? Host.Root : null, ref _keyboardInset);
+        }
+
         void OnModeChanged(GP_LayoutMode mode) => ApplyPanels();
 
         bool Wide => layoutMode != null && layoutMode.Mode == GP_LayoutMode.Wide;
@@ -112,7 +125,7 @@ namespace GamePush.Overlays.Views
             if (listPanel != null)
                 listPanel.SetActive(Wide || !threadOpen);
             if (threadPanel != null)
-                threadPanel.SetActive(Wide || threadOpen);
+                threadPanel.SetActive(threadOpen);
             if (backButton != null)
                 backButton.gameObject.SetActive(!Wide && threadOpen);
         }
