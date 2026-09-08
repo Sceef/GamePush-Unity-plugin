@@ -25,6 +25,10 @@ namespace GamePush
         #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")]
         private static extern string GP_Platform_IsSupportsCloudSaves();
+        [DllImport("__Internal")]
+        private static extern string GP_Platform_IsBackendAllowed();
+        [DllImport("__Internal")]
+        private static extern string GP_Platform_IsChatAvailable();
         #endif
 #endif
 
@@ -143,6 +147,28 @@ namespace GamePush
             if (GP_Play2Web.TryGetBool("PlatformIsSupportsCloudSaves", out var live))
                 return live;
             return GP_Settings.instance.GetFromPlatformSettings().IsSupportsCloudSaves;
+#endif
+        }
+
+        public static bool IsBackendAllowed()
+        {
+#if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
+            return GP_Platform_IsBackendAllowed() == "true";
+#else
+            if (GP_Play2Web.TryGetBool("PlatformIsBackendAllowed", out var live))
+                return live;
+            return GP_Settings.instance.GetFromPlatformSettings().IsBackendAllowed;
+#endif
+        }
+
+        public static bool IsChatAvailable()
+        {
+#if !UNITY_EDITOR && UNITY_WEBGL && !GP_NATIVE_WEBGL
+            return GP_Platform_IsChatAvailable() == "true";
+#else
+            if (GP_Play2Web.TryGetBool("PlatformIsChatAvailable", out var live))
+                return live;
+            return GP_Settings.instance.GetFromPlatformSettings().IsChatAvailable;
 #endif
         }
 

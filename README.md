@@ -1281,6 +1281,8 @@ public class FetchPlayerPurchases
 | `TypeAsString`           | void              | `string`     |
 | `HasIntegratedAuth`      | void              | `bool`       |
 | `IsExternalLinksAllowed` | void              | `bool`       |
+| `IsBackendAllowed`       | void              | `bool`       |
+| `IsChatAvailable`        | void              | `bool`       |
 
 ### Data structures
 

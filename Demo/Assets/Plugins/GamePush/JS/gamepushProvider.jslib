@@ -86,6 +86,14 @@ mergeInto(LibraryManager.library, {
         var value = _GP().PlatformIsSupportsCloudSaves();
         return _ToBuff(value);
     },
+    GP_Platform_IsBackendAllowed: function () {
+        var value = _GP().PlatformIsBackendAllowed();
+        return _ToBuff(value);
+    },
+    GP_Platform_IsChatAvailable: function () {
+        var value = _GP().PlatformIsChatAvailable();
+        return _ToBuff(value);
+    },
     /* PLATFORM */
 
 

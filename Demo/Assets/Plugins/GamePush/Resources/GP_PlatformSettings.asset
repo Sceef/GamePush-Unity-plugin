@@ -21,6 +21,8 @@ MonoBehaviour:
   IsExternalLinksAllowed: 1
   IsSecretCodeAuthAvailable: 1
   IsSupportsCloudSaves: 1
+  IsBackendAllowed: 1
+  IsChatAvailable: 1
   IsLoggedIn: 1
   HasAnyCredentials: 1
   IsStub: 1

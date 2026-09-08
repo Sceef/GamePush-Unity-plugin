@@ -782,6 +782,12 @@ export default class GamePushUnity {
     PlatformIsSupportsCloudSaves() {
         return this.toUnity(this.gp.platform.isSupportsCloudSaves);
     }
+    PlatformIsBackendAllowed() {
+        return this.toUnity(this.gp.platform.isBackendAllowed);
+    }
+    PlatformIsChatAvailable() {
+        return this.toUnity(this.gp.platform.isChatAvailable);
+    }
 
     AppTitle() {
         return this.gp.app.title;

@@ -267,6 +267,8 @@
       kv("PlatformIsExternalLinksAllowed", platform.isExternalLinksAllowed),
       kv("PlatformIsSecretCodeAuthAvailable", platform.isSecretCodeAuthAvailable),
       kv("PlatformIsSupportsCloudSaves", platform.isSupportsCloudSaves),
+      kv("PlatformIsBackendAllowed", platform.isBackendAllowed),
+      kv("PlatformIsChatAvailable", platform.isChatAvailable),
       kv("Language", gp.language),
       kv("IsMobile", gp.isMobile),
       kv("IsPortrait", gp.isPortrait),
