@@ -48,6 +48,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Achievements_Open();
 #else
+            if (GP_Play2Web.Call("AchievementsOpen"))
+                return;
             ConsoleLog("OPEN");
             OnAchievementsOpen?.Invoke();
             _onAchievementsOpen?.Invoke();

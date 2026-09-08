@@ -28,7 +28,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Fullscreen_Open();
 #else
-
+            if (GP_Play2Web.Call("FullscreenOpen"))
+                return;
             ConsoleLog("OPEN");
             OnFullscreenOpen?.Invoke();
             _onFullscreenOpen?.Invoke();
@@ -47,7 +48,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Fullscreen_Close();
 #else
-
+            if (GP_Play2Web.Call("FullscreenClose"))
+                return;
             ConsoleLog("CLOSE");
             OnFullscreenClose?.Invoke();
             _onFullscreenClose?.Invoke();
@@ -64,7 +66,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Fullscreen_Toggle();
 #else
-
+            if (GP_Play2Web.Call("FullscreenToggle"))
+                return;
             ConsoleLog("TOGGLE");
 #endif
         }

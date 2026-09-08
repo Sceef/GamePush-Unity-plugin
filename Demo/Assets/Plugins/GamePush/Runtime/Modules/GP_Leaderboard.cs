@@ -42,7 +42,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Leaderboard_Open(orderBy, order.ToString(), limit, showNearest, withMe.ToString(), includeFields, displayFields);
 #else
-
+            if (GP_Play2Web.Call("LeaderboardOpen", orderBy, order.ToString(), limit, showNearest, withMe.ToString(), includeFields, displayFields))
+                return;
             ConsoleLog("OPEN");
 #endif
         }

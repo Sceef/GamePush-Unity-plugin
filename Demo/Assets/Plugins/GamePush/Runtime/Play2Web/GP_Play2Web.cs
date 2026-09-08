@@ -423,9 +423,11 @@ namespace GamePush
                    || n.IndexOf("OpenChat", StringComparison.OrdinalIgnoreCase) >= 0
                    || n.IndexOf("AchievementsOpen", StringComparison.OrdinalIgnoreCase) >= 0
                    || n.IndexOf("LeaderboardOpen", StringComparison.OrdinalIgnoreCase) >= 0
+                   || n.IndexOf("LeaderboardScopedOpen", StringComparison.OrdinalIgnoreCase) >= 0
                    || n.IndexOf("GamesCollectionsOpen", StringComparison.OrdinalIgnoreCase) >= 0
                    || n.IndexOf("DocumentsOpen", StringComparison.OrdinalIgnoreCase) >= 0
-                   || n.IndexOf("FullscreenOpen", StringComparison.OrdinalIgnoreCase) >= 0;
+                   || n.IndexOf("FullscreenOpen", StringComparison.OrdinalIgnoreCase) >= 0
+                   || n.IndexOf("FeedbacksOpen", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         static bool ShowsOverlayEvent(string method)
@@ -441,7 +443,9 @@ namespace GamePush
                    || method == "CallPaymentsOpen"
                    || method == "CallFullscreenOpen"
                    || method == "CallWindowsShowConfirm"
-                   || method == "CallOnPause";
+                   || method == "CallOnPause"
+                   || method == "CallFeedbacksOpenList"
+                   || method == "CallFeedbacksOpenFeedback";
         }
 
         static bool HidesOverlayEvent(string method)
@@ -451,7 +455,9 @@ namespace GamePush
             return method.IndexOf("Close", StringComparison.Ordinal) >= 0
                    || method == "CallOnResume"
                    || method == "CallPaymentsClose"
-                   || method == "CallFullscreenClose";
+                   || method == "CallFullscreenClose"
+                   || method == "CallFeedbacksOpenListError"
+                   || method == "CallFeedbacksOpenFeedbackError";
         }
 
         static void EmitLog(string message)

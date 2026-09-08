@@ -36,7 +36,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_GamesCollections_Open(idOrTag);
 #else
-
+            if (GP_Play2Web.Call("GamesCollectionsOpen", idOrTag))
+                return;
             ConsoleLog("OPEN: " + idOrTag);
 #endif
         }

@@ -242,6 +242,7 @@ namespace GamePush
             GP_Channels_OpenChat(-10);
             GP_WebGLInput.Release();
 #else
+            if (GP_Play2Web.Call("GP_Channels_OpenChat", -10)) return;
 
             ConsoleLog("OPEN CHAT");
 #endif

@@ -1852,7 +1852,7 @@ export default class GamePushUnity {
         if (channel_ID == -10) {
             this.gp.channels.openChat();
         } else {
-            this.gp.channels.openChat({ channel_ID });
+            this.gp.channels.openChat({ id: channel_ID });
         }
     }
 
@@ -1866,7 +1866,7 @@ export default class GamePushUnity {
             });
         } else {
             this.gp.channels.openChat({
-                channel_ID,
+                id: channel_ID,
                 tags: tags
                     .split(',')
                     .map((o) => o.trim())
@@ -1877,7 +1877,7 @@ export default class GamePushUnity {
 
     Channels_Open_Personal_Chat(player_ID, tags) {
         this.gp.channels.openPersonalChat({
-            player_ID,
+            playerId: player_ID,
             tags: tags
                 .split(',')
                 .map((o) => o.trim())
@@ -1887,7 +1887,7 @@ export default class GamePushUnity {
 
     Channels_Open_Feed(player_ID, tags) {
         this.gp.channels.openFeed({
-            player_ID,
+            playerId: player_ID,
             tags: tags
                 .split(',')
                 .map((o) => o.trim())

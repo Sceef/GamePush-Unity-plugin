@@ -36,7 +36,8 @@ namespace GamePush
 #if !UNITY_EDITOR && UNITY_WEBGL
             GP_Documents_Open();
 #else
-
+            if (GP_Play2Web.Call("DocumentsOpen"))
+                return;
             ConsoleLog("OPEN");
 #endif
         }

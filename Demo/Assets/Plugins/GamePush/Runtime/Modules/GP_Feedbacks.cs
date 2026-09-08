@@ -103,6 +103,8 @@ namespace GamePush
             GP_Feedbacks_Open(type ?? "", status ?? "");
             GP_WebGLInput.Release();
 #else
+            if (GP_Play2Web.Call("FeedbacksOpen", type ?? "", status ?? ""))
+                return;
             ConsoleLog("OPEN");
             OnOpenList?.Invoke();
             _onOpenList?.Invoke();
@@ -118,6 +120,8 @@ namespace GamePush
             GP_Feedbacks_OpenFeedback(feedbackId ?? "");
             GP_WebGLInput.Release();
 #else
+            if (GP_Play2Web.Call("FeedbacksOpenFeedback", feedbackId ?? ""))
+                return;
             ConsoleLog("OPEN FEEDBACK: " + feedbackId);
             OnOpenFeedback?.Invoke();
             _onOpenFeedback?.Invoke();
