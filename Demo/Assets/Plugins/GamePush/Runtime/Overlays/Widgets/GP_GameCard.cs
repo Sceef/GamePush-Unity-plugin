@@ -17,18 +17,18 @@ namespace GamePush.Overlays.Widgets
             var skin = GP_OverlaySkin.Instance;
 
             if (background != null)
-                background.color = skin.RowColor(index);
+                GP_OverlayTone.Paint(background, skin, GP_OverlayTone.RowRole(index));
 
             if (nameLabel != null)
             {
                 nameLabel.text = game.name ?? "";
-                nameLabel.color = skin.text;
+                GP_OverlayTone.Paint(nameLabel, skin, GP_OverlayColorRole.Text);
             }
 
             if (playLabel != null)
             {
                 playLabel.text = GP_OverlayStrings.Play;
-                playLabel.color = skin.accent;
+                GP_OverlayTone.Paint(playLabel, skin, GP_OverlayColorRole.Accent);
             }
 
             if (icon != null)

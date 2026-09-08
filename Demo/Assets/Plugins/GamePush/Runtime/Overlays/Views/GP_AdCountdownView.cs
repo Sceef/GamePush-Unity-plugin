@@ -33,7 +33,7 @@ namespace GamePush.Overlays.Views
             if (captionLabel != null)
             {
                 captionLabel.text = GP_OverlayStrings.AdSoon;
-                captionLabel.color = Skin.text;
+                GP_OverlayTone.Paint(captionLabel, Skin, GP_OverlayColorRole.Text);
             }
 
             if (skipButton != null)
@@ -65,7 +65,7 @@ namespace GamePush.Overlays.Views
             if (countdownLabel == null)
                 return;
             countdownLabel.text = GP_OverlayStrings.Seconds(_left);
-            countdownLabel.color = Skin.text;
+            GP_OverlayTone.Paint(countdownLabel, Skin, GP_OverlayColorRole.Text);
         }
 
         void Finish()

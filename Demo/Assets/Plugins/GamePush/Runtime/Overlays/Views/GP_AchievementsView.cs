@@ -21,6 +21,9 @@ namespace GamePush.Overlays.Views
         public Button compactGroupButtonTemplate;
         public TMP_Text counterLabel;
 
+        protected override Transform StatusHost =>
+            list != null ? list.transform : null;
+
         readonly List<AchievementsFetch> _all = new List<AchievementsFetch>();
         readonly List<AchievementsFetch> _visible = new List<AchievementsFetch>();
         readonly List<AchievementsFetchGroups> _groups = new List<AchievementsFetchGroups>();
@@ -63,6 +66,7 @@ namespace GamePush.Overlays.Views
             _all.Clear();
             if (achievements != null)
                 _all.AddRange(achievements);
+            BuildGroupRail();
             Refresh();
         }
 
@@ -93,11 +97,23 @@ namespace GamePush.Overlays.Views
                     continue;
 
                 var groupIndex = i - 1;
-                var label = button.GetComponentInChildren<TMP_Text>();
-                if (label != null)
+                var selected = groupIndex == _selectedGroup;
+                var title = groupIndex < 0 ? GP_OverlayStrings.All : _groups[groupIndex].name;
+                var count = GroupCount(groupIndex);
+                var chip = button.GetComponent<GP_OverlayChip>();
+                if (chip != null)
                 {
-                    label.text = groupIndex < 0 ? GP_OverlayStrings.Achievements : _groups[groupIndex].name;
-                    label.color = groupIndex == _selectedGroup ? Skin.accent : Skin.textMuted;
+                    chip.Bind(title, count, selected);
+                }
+                else
+                {
+                    var label = button.GetComponentInChildren<TMP_Text>();
+                    if (label != null)
+                    {
+                        label.text = title;
+                        GP_OverlayTone.Paint(label, Skin,
+                            selected ? GP_OverlayColorRole.Accent : GP_OverlayColorRole.TextMuted);
+                    }
                 }
 
                 button.onClick.RemoveAllListeners();
@@ -111,6 +127,46 @@ namespace GamePush.Overlays.Views
             }
 
             rail.gameObject.SetActive(_groups.Count > 0);
+        }
+
+        string GroupCount(int groupIndex)
+        {
+            var unlocked = 0;
+            var total = 0;
+            if (groupIndex < 0)
+            {
+                total = _all.Count;
+                unlocked = CountUnlocked(_all);
+            }
+            else if (groupIndex < _groups.Count)
+            {
+                var ids = _groups[groupIndex].achievements;
+                if (ids == null)
+                    return "0 / 0";
+                foreach (var achievement in _all)
+                {
+                    if (System.Array.IndexOf(ids, achievement.id) < 0)
+                        continue;
+                    total++;
+                    var entry = NativeAchievements.PlayerEntry(achievement.id);
+                    if (entry != null && entry.unlocked)
+                        unlocked++;
+                }
+            }
+
+            return unlocked + " / " + total;
+        }
+
+        static int CountUnlocked(List<AchievementsFetch> achievements)
+        {
+            var unlocked = 0;
+            foreach (var achievement in achievements)
+            {
+                var entry = NativeAchievements.PlayerEntry(achievement.id);
+                if (entry != null && entry.unlocked)
+                    unlocked++;
+            }
+            return unlocked;
         }
 
         void Refresh()
@@ -155,15 +211,9 @@ namespace GamePush.Overlays.Views
         {
             if (counterLabel == null)
                 return;
-            var unlocked = 0;
-            foreach (var achievement in _visible)
-            {
-                var entry = NativeAchievements.PlayerEntry(achievement.id);
-                if (entry != null && entry.unlocked)
-                    unlocked++;
-            }
-            counterLabel.text = unlocked + " / " + _visible.Count;
-            counterLabel.color = Skin.textMuted;
+            counterLabel.richText = true;
+            counterLabel.text = GP_OverlayStrings.UnlockedProgress(CountUnlocked(_all), _all.Count, Skin.AccentHex);
+                GP_OverlayTone.Paint(counterLabel, Skin, GP_OverlayColorRole.TextMuted);
         }
     }
 }

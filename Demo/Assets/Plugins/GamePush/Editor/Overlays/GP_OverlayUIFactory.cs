@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using GamePush.Overlays;
+using GamePush.Overlays.Widgets;
 
 namespace GamePushEditor.Overlays
 {
@@ -40,6 +41,13 @@ namespace GamePushEditor.Overlays
             return rect;
         }
 
+        internal static Image Panel(string name, Transform parent, GP_OverlayColorRole role, Sprite sprite = null)
+        {
+            var image = Panel(name, parent, Skin.ColorOf(role), sprite);
+            GP_OverlayTone.Bind(image.gameObject, role);
+            return image;
+        }
+
         internal static Image Panel(string name, Transform parent, Color color, Sprite sprite = null)
         {
             var rect = Rect(name, parent);
@@ -48,17 +56,34 @@ namespace GamePushEditor.Overlays
             image.sprite = sprite;
             image.type = sprite != null ? Image.Type.Sliced : Image.Type.Simple;
             image.raycastTarget = true;
+            GP_OverlayTone.Bind(image.gameObject, Skin, color);
             return image;
         }
 
         /// <summary>Paints an existing node instead of adding a child, so layout groups ignore it.</summary>
+        internal static Image Background(RectTransform rect, GP_OverlayColorRole role, Sprite sprite = null)
+        {
+            var image = Background(rect, Skin.ColorOf(role), sprite);
+            GP_OverlayTone.Bind(image.gameObject, role);
+            return image;
+        }
+
         internal static Image Background(RectTransform rect, Color color, Sprite sprite = null)
         {
             var image = rect.gameObject.AddComponent<Image>();
             image.color = color;
             image.sprite = sprite;
             image.type = sprite != null ? Image.Type.Sliced : Image.Type.Simple;
+            GP_OverlayTone.Bind(image.gameObject, Skin, color);
             return image;
+        }
+
+        internal static TMP_Text Text(string name, Transform parent, string value, float size,
+            GP_OverlayColorRole role, TextAlignmentOptions alignment = TextAlignmentOptions.Left)
+        {
+            var text = Text(name, parent, value, size, Skin.ColorOf(role), alignment);
+            GP_OverlayTone.Bind(text.gameObject, role);
+            return text;
         }
 
         internal static TMP_Text Text(string name, Transform parent, string value, float size, Color color,
@@ -74,28 +99,52 @@ namespace GamePushEditor.Overlays
             text.raycastTarget = false;
             if (Skin.font != null)
                 text.font = Skin.font;
+            GP_OverlayTone.Bind(text.gameObject, Skin, color);
             return text;
+        }
+
+        internal static Button Button(string name, Transform parent, string label, GP_OverlayColorRole role,
+            out TMP_Text labelText)
+        {
+            var button = Button(name, parent, label, Skin.ColorOf(role), out labelText);
+            GP_OverlayTone.Bind(button.gameObject, role);
+            return button;
         }
 
         internal static Button Button(string name, Transform parent, string label, Color background,
             out TMP_Text labelText)
         {
             var image = Panel(name, parent, background, Skin.buttonSprite);
+            image.color = Color.white;
             var button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.transition = Selectable.Transition.ColorTint;
             button.colors = Skin.ButtonColors(background);
 
-            labelText = Text("Label", image.transform, label, Skin.bodySize, Skin.text,
+            labelText = Text("Label", image.transform, label, Skin.bodySize, GP_OverlayColorRole.Text,
                 TextAlignmentOptions.Center);
             Stretch((RectTransform)labelText.transform);
             return button;
         }
 
-        internal static Button IconButton(string name, Transform parent, string glyph, Color background,
+        internal static Button IconButton(string name, Transform parent, Sprite icon, GP_OverlayColorRole role,
             float size = -1f)
         {
-            var button = Button(name, parent, glyph, background, out _);
+            var button = IconButton(name, parent, icon, Skin.ColorOf(role), size);
+            GP_OverlayTone.Bind(button.gameObject, role);
+            return button;
+        }
+
+        internal static Button IconButton(string name, Transform parent, Sprite icon, Color background,
+            float size = -1f)
+        {
+            var image = Panel(name, parent, background, Skin.buttonSprite);
+            image.color = Color.white;
+            var button = image.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = Skin.ButtonColors(background);
+
             size = size > 0f ? size : Skin.compactControlHeight;
             Size(button.GetComponent<RectTransform>(), new Vector2(size, size));
             var element = button.gameObject.AddComponent<LayoutElement>();
@@ -103,12 +152,102 @@ namespace GamePushEditor.Overlays
             element.preferredWidth = size;
             element.minHeight = size;
             element.preferredHeight = size;
+
+            if (icon != null)
+            {
+                var glyph = Panel("Icon", image.transform, GP_OverlayColorRole.Text, icon);
+                glyph.raycastTarget = false;
+                glyph.type = Image.Type.Simple;
+                var glyphRect = (RectTransform)glyph.transform;
+                glyphRect.anchorMin = new Vector2(0.5f, 0.5f);
+                glyphRect.anchorMax = new Vector2(0.5f, 0.5f);
+                glyphRect.pivot = new Vector2(0.5f, 0.5f);
+                glyphRect.sizeDelta = new Vector2(size * 0.42f, size * 0.42f);
+                glyphRect.anchoredPosition = Vector2.zero;
+            }
+
             return button;
+        }
+
+        internal static Button Chip(string name, Transform parent, bool withCount, bool stretch = false)
+        {
+            var image = Panel(name, parent, GP_OverlayColorRole.Button, Skin.buttonSprite);
+            image.color = Color.white;
+            var button = image.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.transition = Selectable.Transition.ColorTint;
+            button.colors = Skin.ButtonColors(Skin.button);
+
+            var layout = Horizontal(image.gameObject, new RectOffset(16, 16, 8, 8), 8f);
+            layout.childForceExpandWidth = stretch;
+            layout.childAlignment = TextAnchor.MiddleLeft;
+
+            var chip = image.gameObject.AddComponent<GamePush.Overlays.Widgets.GP_OverlayChip>();
+            chip.background = image;
+            chip.titleLabel = Text("Title", image.transform, "", Skin.captionSize, GP_OverlayColorRole.TextMuted,
+                TextAlignmentOptions.MidlineLeft);
+            Element(chip.titleLabel.gameObject, flexibleWidth: stretch ? 1f : 0f, minWidth: 48f);
+
+            if (withCount)
+            {
+                chip.countLabel = Text("Count", image.transform, "", Skin.captionSize, GP_OverlayColorRole.TextMuted,
+                    TextAlignmentOptions.MidlineRight);
+                Element(chip.countLabel.gameObject, minWidth: 56f, preferredWidth: 72f);
+            }
+
+            var outline = image.gameObject.AddComponent<Outline>();
+            outline.effectColor = Skin.accent;
+            outline.effectDistance = new Vector2(2f, -2f);
+            outline.useGraphicAlpha = true;
+            outline.enabled = false;
+            chip.selectedOutline = outline;
+
+            if (stretch)
+            {
+                Element(image.gameObject, flexibleWidth: 1f, minHeight: Skin.compactControlHeight,
+                    preferredHeight: Skin.controlHeight);
+            }
+            else
+            {
+                Element(image.gameObject, minWidth: 140f, minHeight: Skin.compactControlHeight,
+                    preferredHeight: Skin.controlHeight);
+                var fitter = image.gameObject.AddComponent<ContentSizeFitter>();
+                fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            }
+
+            return button;
+        }
+
+        internal static GameObject StatusChip(string name, Transform parent, Sprite icon, Color iconColor,
+            string label, Color labelColor)
+        {
+            var image = Panel(name, parent, GP_OverlayColorRole.Button, Skin.buttonSprite);
+            image.raycastTarget = false;
+            Horizontal(image.gameObject, new RectOffset(10, 12, 6, 6), 6f, false).childForceExpandWidth = false;
+            Element(image.gameObject, minWidth: 88f, preferredWidth: 132f, minHeight: 40f, preferredHeight: 44f,
+                flexibleHeight: 0f);
+
+            if (icon != null)
+            {
+                var glyph = Panel("Icon", image.transform, iconColor, icon);
+                glyph.raycastTarget = false;
+                glyph.type = Image.Type.Simple;
+                glyph.preserveAspect = true;
+                Size((RectTransform)glyph.transform, new Vector2(22f, 22f));
+                Element(glyph.gameObject, minWidth: 22f, preferredWidth: 22f, minHeight: 22f, preferredHeight: 22f,
+                    flexibleWidth: 0f, flexibleHeight: 0f);
+                GP_LayoutSquare.Lock(glyph, 22f);
+            }
+
+            var text = Text("Label", image.transform, label, Skin.captionSize, labelColor,
+                TextAlignmentOptions.MidlineLeft);
+            Element(text.gameObject, minWidth: 64f, preferredWidth: 96f);
+            return image.gameObject;
         }
 
         internal static Image Divider(string name, Transform parent, bool vertical = false)
         {
-            var divider = Panel(name, parent, Skin.border);
+            var divider = Panel(name, parent, GP_OverlayColorRole.Border);
             if (vertical)
                 Element(divider.gameObject, minWidth: 1f, preferredWidth: 1f, flexibleHeight: 1f);
             else
@@ -117,12 +256,12 @@ namespace GamePushEditor.Overlays
             return divider;
         }
 
-        internal static void StyleSelectable(Selectable selectable, Color normal)
+        internal static void StyleSelectable(Selectable selectable, Color _)
         {
             if (selectable == null)
                 return;
             selectable.transition = Selectable.Transition.ColorTint;
-            selectable.colors = Skin.ButtonColors(normal);
+            GP_OverlayTone.Paint(selectable.targetGraphic, Skin, GP_OverlayColorRole.Input);
         }
 
         internal static RectTransform Size(RectTransform rect, Vector2 size)
@@ -146,7 +285,8 @@ namespace GamePushEditor.Overlays
             return layout;
         }
 
-        internal static HorizontalLayoutGroup Horizontal(GameObject target, RectOffset padding, float spacing)
+        internal static HorizontalLayoutGroup Horizontal(GameObject target, RectOffset padding, float spacing,
+            bool forceExpandHeight = true)
         {
             var layout = target.AddComponent<HorizontalLayoutGroup>();
             layout.padding = padding;
@@ -154,7 +294,7 @@ namespace GamePushEditor.Overlays
             layout.childControlWidth = true;
             layout.childControlHeight = true;
             layout.childForceExpandWidth = false;
-            layout.childForceExpandHeight = true;
+            layout.childForceExpandHeight = forceExpandHeight;
             layout.childAlignment = TextAnchor.MiddleLeft;
             return layout;
         }
@@ -234,8 +374,10 @@ namespace GamePushEditor.Overlays
         {
             var image = Panel(name, parent, Color.white, Skin.avatarPlaceholder);
             image.raycastTarget = false;
-            Size((RectTransform)image.transform, new Vector2(size, size));
-            Element(image.gameObject, minWidth: size, minHeight: size, preferredWidth: size, preferredHeight: size);
+            image.preserveAspect = true;
+            image.type = Image.Type.Simple;
+            Element(image.gameObject, minWidth: size, minHeight: size, preferredWidth: size, preferredHeight: size,
+                flexibleWidth: 0f, flexibleHeight: 0f);
             var remote = image.gameObject.AddComponent<GamePush.Overlays.Widgets.GP_RemoteImage>();
             remote.placeholder = Skin.avatarPlaceholder;
             return remote;

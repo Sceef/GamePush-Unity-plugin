@@ -14,6 +14,7 @@ namespace GamePush.Overlays.Widgets
     public sealed class GP_RemoteImage : MonoBehaviour
     {
         const int CacheLimit = 128;
+        static readonly Color EmptyFill = new Color(1f, 1f, 1f, 0.12f);
 
         static readonly Dictionary<string, Sprite> Cache = new Dictionary<string, Sprite>();
         static readonly List<string> CacheOrder = new List<string>();
@@ -26,6 +27,38 @@ namespace GamePush.Overlays.Widgets
 
         Image Target => _image != null ? _image : _image = GetComponent<Image>();
 
+        void Awake()
+        {
+            LockSquare();
+        }
+
+        void OnEnable()
+        {
+            LockSquare();
+        }
+
+        void LockSquare()
+        {
+            var layout = GetComponent<LayoutElement>();
+            if (layout != null)
+            {
+                var size = Mathf.Max(layout.minWidth, layout.minHeight, layout.preferredWidth, layout.preferredHeight);
+                if (size > 0f)
+                {
+                    layout.minWidth = size;
+                    layout.minHeight = size;
+                    layout.preferredWidth = size;
+                    layout.preferredHeight = size;
+                    layout.flexibleWidth = 0f;
+                    layout.flexibleHeight = 0f;
+                    GP_LayoutSquare.Lock(this, size);
+                }
+            }
+
+            if (Target != null && Target.sprite != null)
+                Target.preserveAspect = true;
+        }
+
         public void Load(string url, Sprite fallback = null)
         {
             if (fallback != null)
@@ -37,6 +70,7 @@ namespace GamePush.Overlays.Widgets
                 _routine = null;
             }
 
+            url = Normalize(url);
             _url = url;
             if (string.IsNullOrEmpty(url))
             {
@@ -65,15 +99,27 @@ namespace GamePush.Overlays.Widgets
         IEnumerator Download(string url)
         {
             using var request = UnityWebRequestTexture.GetTexture(url);
+            request.timeout = 15;
+            request.redirectLimit = 16;
+            request.SetRequestHeader("Accept", "image/*,*/*");
             yield return request.SendWebRequest();
             _routine = null;
 
-            if (request.result != UnityWebRequest.Result.Success || _url != url)
+            if (_url != url)
                 yield break;
+
+            if (request.result != UnityWebRequest.Result.Success)
+            {
+                Apply(placeholder);
+                yield break;
+            }
 
             var texture = DownloadHandlerTexture.GetContent(request);
             if (texture == null)
+            {
+                Apply(placeholder);
                 yield break;
+            }
 
             var sprite = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height),
                 new Vector2(0.5f, 0.5f));
@@ -85,9 +131,23 @@ namespace GamePush.Overlays.Widgets
         {
             if (Target == null)
                 return;
-            Target.sprite = sprite;
-            Target.enabled = sprite != null;
-            Target.preserveAspect = true;
+            var empty = sprite == null && placeholder == null;
+            Target.enabled = true;
+            Target.sprite = sprite != null ? sprite : placeholder;
+            Target.color = Target.sprite != null ? Color.white : EmptyFill;
+            Target.preserveAspect = Target.sprite != null;
+            if (empty)
+                Target.type = Image.Type.Simple;
+        }
+
+        static string Normalize(string url)
+        {
+            if (string.IsNullOrEmpty(url))
+                return "";
+            url = url.Trim();
+            if (url.StartsWith("//"))
+                return "https:" + url;
+            return url;
         }
 
         static void Store(string url, Sprite sprite)

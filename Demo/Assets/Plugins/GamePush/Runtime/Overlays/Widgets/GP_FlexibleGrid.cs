@@ -21,11 +21,22 @@ namespace GamePush.Overlays.Widgets
         [Tooltip("Cell height divided by cell width.")]
         public float cellRatio = 1f;
 
+        [Tooltip("When positive, overrides cellRatio in Compact mode.")]
+        public float compactCellRatio;
+
+        [Tooltip("When positive, overrides cellRatio in Wide mode.")]
+        public float wideCellRatio;
+
+        [Tooltip("When positive, cell height is this value instead of width * ratio.")]
+        public float cellHeight;
+
         GridLayoutGroup _grid;
         RectTransform _rect;
         GP_OverlayLayoutMode _mode;
         float _lastWidth = -1f;
         int _lastColumns = -1;
+        float _lastRatio = -1f;
+        float _lastCellHeight = -1f;
 
         void OnEnable()
         {
@@ -64,18 +75,29 @@ namespace GamePush.Overlays.Widgets
                 columns = Mathf.Clamp(columns, 1, Mathf.Max(1, maxColumns));
             }
             columns = Mathf.Max(1, columns);
-            if (Mathf.Approximately(width, _lastWidth) && columns == _lastColumns)
+            var ratio = cellRatio;
+            var wide = _mode != null && _mode.Mode == GP_LayoutMode.Wide;
+            if (wide && wideCellRatio > 0f)
+                ratio = wideCellRatio;
+            else if (!wide && compactCellRatio > 0f)
+                ratio = compactCellRatio;
+
+            if (Mathf.Approximately(width, _lastWidth) && columns == _lastColumns &&
+                Mathf.Approximately(ratio, _lastRatio) && Mathf.Approximately(cellHeight, _lastCellHeight))
                 return;
             _lastWidth = width;
             _lastColumns = columns;
+            _lastRatio = ratio;
+            _lastCellHeight = cellHeight;
 
             var padding = _grid.padding.left + _grid.padding.right;
             var spacing = _grid.spacing.x * (columns - 1);
             var cellWidth = Mathf.Max(1f, (width - padding - spacing) / columns);
+            var height = cellHeight > 0f ? cellHeight : cellWidth * Mathf.Max(0.1f, ratio);
 
             _grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             _grid.constraintCount = columns;
-            _grid.cellSize = new Vector2(cellWidth, cellWidth * Mathf.Max(0.1f, cellRatio));
+            _grid.cellSize = new Vector2(cellWidth, height);
         }
     }
 }

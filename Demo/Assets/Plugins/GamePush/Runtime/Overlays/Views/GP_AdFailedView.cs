@@ -21,7 +21,7 @@ namespace GamePush.Overlays.Views
             if (textLabel != null)
             {
                 textLabel.text = string.IsNullOrEmpty(data.text) ? GP_OverlayStrings.AdUnavailable : data.text;
-                textLabel.color = Skin.text;
+                GP_OverlayTone.Paint(textLabel, Skin, GP_OverlayColorRole.Text);
             }
 
             if (okButton == null)

@@ -15,6 +15,25 @@ namespace GamePush.Overlays.Widgets
         public Button muteButton;
         public Button kickButton;
 
+        void OnEnable()
+        {
+            var horizontal = GetComponent<HorizontalLayoutGroup>();
+            if (horizontal != null)
+                horizontal.childForceExpandHeight = false;
+            LockOnlineDot();
+        }
+
+        void LockOnlineDot()
+        {
+            if (onlineDot == null)
+                return;
+            var layout = onlineDot.GetComponent<LayoutElement>();
+            var side = 14f;
+            if (layout != null)
+                side = Mathf.Max(layout.minWidth, layout.minHeight, layout.preferredWidth, layout.preferredHeight, 14f);
+            GP_LayoutSquare.Lock(onlineDot, side);
+        }
+
         public void Bind(string json, int index, bool canMute, bool canKick, Action onMute, Action onKick)
         {
             var skin = GP_OverlaySkin.Instance;
@@ -36,22 +55,23 @@ namespace GamePush.Overlays.Widgets
             }
 
             if (background != null)
-                background.color = skin.RowColor(index);
+                GP_OverlayTone.Paint(background, skin, GP_OverlayTone.RowRole(index));
 
             if (nameLabel != null)
             {
                 nameLabel.text = string.IsNullOrEmpty(displayName) ? "#" + id : displayName;
-                nameLabel.color = skin.text;
+                GP_OverlayTone.Paint(nameLabel, skin, GP_OverlayColorRole.Text);
             }
 
             if (stateLabel != null)
             {
-                stateLabel.text = isMuted ? "🔇" : "";
-                stateLabel.color = skin.textMuted;
+                stateLabel.text = isMuted ? GP_OverlayStrings.Muted : "";
+                GP_OverlayTone.Paint(stateLabel, skin, GP_OverlayColorRole.TextMuted);
             }
 
             if (onlineDot != null)
-                onlineDot.color = isOnline ? skin.accent : skin.textMuted;
+                GP_OverlayTone.Paint(onlineDot, skin,
+                    isOnline ? GP_OverlayColorRole.Accent : GP_OverlayColorRole.TextMuted);
 
             if (avatar != null)
                 avatar.Load(avatarUrl, skin.avatarPlaceholder);

@@ -33,6 +33,9 @@ namespace GamePush.Overlays.Views
 
         public GP_OverlayLayoutMode layoutMode;
 
+        protected override Transform StatusHost =>
+            listPanel != null ? listPanel.transform : null;
+
         readonly List<FeedbackData> _feedbacks = new List<FeedbackData>();
 
         GP_FeedbacksArgs _args = new GP_FeedbacksArgs();
@@ -227,7 +230,7 @@ namespace GamePush.Overlays.Views
                 threadTitle.text = _composingNew || _selected == null
                     ? GP_OverlayStrings.NewFeedback
                     : string.IsNullOrEmpty(_selected.text) ? GP_OverlayStrings.NewFeedback : _selected.text;
-                threadTitle.color = Skin.text;
+                GP_OverlayTone.Paint(threadTitle, Skin, GP_OverlayColorRole.Text);
             }
 
             if (input != null)

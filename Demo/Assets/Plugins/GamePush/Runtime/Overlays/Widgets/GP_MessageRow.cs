@@ -17,6 +17,14 @@ namespace GamePush.Overlays.Widgets
         public HorizontalLayoutGroup layout;
         public Button deleteButton;
 
+        void OnEnable()
+        {
+            if (layout == null)
+                layout = GetComponent<HorizontalLayoutGroup>();
+            if (layout != null)
+                layout.childForceExpandHeight = false;
+        }
+
         /// <summary>Feedback threads carry no player object, only an author role and a timestamp.</summary>
         public void Bind(FeedbackMessageData message, bool isOwn)
         {
@@ -34,26 +42,26 @@ namespace GamePush.Overlays.Widgets
             var skin = GP_OverlaySkin.Instance;
 
             if (bubble != null)
-                bubble.color = isOwn ? skin.accent : skin.row;
+                GP_OverlayTone.Paint(bubble, skin, isOwn ? GP_OverlayColorRole.RowAlt : GP_OverlayColorRole.Row);
 
             if (authorLabel != null)
             {
                 authorLabel.text = isOwn
                     ? GP_OverlayStrings.You
                     : string.IsNullOrEmpty(message.authorName) ? "#" + message.authorId : message.authorName;
-                authorLabel.color = skin.textMuted;
+                GP_OverlayTone.Paint(authorLabel, skin, GP_OverlayColorRole.TextMuted);
             }
 
             if (textLabel != null)
             {
                 textLabel.text = message.text;
-                textLabel.color = skin.text;
+                GP_OverlayTone.Paint(textLabel, skin, GP_OverlayColorRole.Text);
             }
 
             if (timeLabel != null)
             {
                 timeLabel.text = FormatTime(message.createdAt);
-                timeLabel.color = skin.textMuted;
+                GP_OverlayTone.Paint(timeLabel, skin, GP_OverlayColorRole.TextMuted);
             }
 
             if (avatar != null)

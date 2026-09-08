@@ -66,6 +66,44 @@ namespace GamePush.Overlays
             var responsive = panel != null ? panel.GetComponent<GP_OverlayResponsive>() : null;
             if (responsive != null)
                 responsive.Configure(Skin.Find(kind));
+
+            PinStatusTo(StatusHost);
+            ApplyChrome(Skin);
+        }
+
+        /// <summary>
+        /// Paints palette-tagged surfaces from the current skin so header-colored rails,
+        /// composers and similar chrome follow palette edits without a prefab rebuild.
+        /// </summary>
+        public void ApplyChrome(GP_OverlaySkin skin)
+        {
+            PinStatusTo(StatusHost);
+            if (skin == null)
+                return;
+            GP_OverlayTone.Apply(gameObject, skin);
+        }
+
+        /// <summary>
+        /// Split layouts (chat feed, feedback list, achievement grid) override this so loading
+        /// and error copy sit in the content column instead of the whole window.
+        /// </summary>
+        protected virtual Transform StatusHost => null;
+
+        protected void PinStatusTo(Transform host)
+        {
+            if (statusLabel == null || host == null)
+                return;
+            var rect = statusLabel.rectTransform;
+            if (rect.parent != host)
+                rect.SetParent(host, false);
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.SetAsLastSibling();
+            var ignore = statusLabel.GetComponent<LayoutElement>() ??
+                         statusLabel.gameObject.AddComponent<LayoutElement>();
+            ignore.ignoreLayout = true;
         }
 
         public abstract void Bind(object args);

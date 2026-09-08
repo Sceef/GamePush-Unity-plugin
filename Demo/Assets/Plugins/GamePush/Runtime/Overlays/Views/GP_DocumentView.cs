@@ -61,7 +61,7 @@ namespace GamePush.Overlays.Views
             if (contentLabel != null)
             {
                 contentLabel.text = content;
-                contentLabel.color = Skin.text;
+                GP_OverlayTone.Paint(contentLabel, Skin, GP_OverlayColorRole.Text);
             }
             if (scrollRect != null)
             {

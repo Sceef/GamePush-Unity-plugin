@@ -12,6 +12,7 @@ namespace GamePush.Overlays.Widgets
         public TMP_Text textLabel;
         public TMP_Text statusLabel;
         public TMP_Text dateLabel;
+        public Image selectedBar;
         public Button button;
 
         public void Bind(FeedbackData feedback, int index, bool selected, Action onClick)
@@ -19,24 +20,30 @@ namespace GamePush.Overlays.Widgets
             var skin = GP_OverlaySkin.Instance;
 
             if (background != null)
-                background.color = selected ? skin.accent : skin.RowColor(index);
+                GP_OverlayTone.Paint(background, skin, GP_OverlayTone.RowRole(index));
+
+            if (selectedBar != null)
+            {
+                selectedBar.gameObject.SetActive(selected);
+                GP_OverlayTone.Paint(selectedBar, skin, GP_OverlayColorRole.Accent);
+            }
 
             if (textLabel != null)
             {
                 textLabel.text = string.IsNullOrEmpty(feedback.text) ? GP_OverlayStrings.NewFeedback : feedback.text;
-                textLabel.color = skin.text;
+                GP_OverlayTone.Paint(textLabel, skin, GP_OverlayColorRole.Text);
             }
 
             if (statusLabel != null)
             {
                 statusLabel.text = feedback.status ?? "";
-                statusLabel.color = skin.textMuted;
+                GP_OverlayTone.Paint(statusLabel, skin, GP_OverlayColorRole.TextMuted);
             }
 
             if (dateLabel != null)
             {
                 dateLabel.text = FormatDate(feedback.createdAt);
-                dateLabel.color = skin.textMuted;
+                GP_OverlayTone.Paint(dateLabel, skin, GP_OverlayColorRole.TextMuted);
             }
 
             if (button == null)

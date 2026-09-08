@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 using GamePush.Native;
 using GamePush.Overlays.Widgets;
@@ -15,17 +16,23 @@ namespace GamePush.Overlays.Views
 
         public GP_LeaderboardRow selfRow;
         public TMP_Text subtitleLabel;
+        public GP_LeaderboardRow headerRow;
 
         NativeLeaderboardResult _result;
+        string _displayFields = "";
 
         public override void Bind(object args)
         {
             var data = args as GP_LeaderboardArgs ?? new GP_LeaderboardArgs();
+            _displayFields = data.displayFields ?? "";
             SetTitle(GP_OverlayStrings.Leaderboard);
             SetStatus(GP_OverlayStrings.Loading);
             list?.Clear();
             if (selfRowHolder != null)
                 selfRowHolder.SetActive(false);
+            EnsureHeader();
+            if (headerRow != null)
+                headerRow.gameObject.SetActive(false);
 
             if (layoutMode != null)
                 layoutMode.ModeChanged += OnModeChanged;
@@ -65,14 +72,22 @@ namespace GamePush.Overlays.Views
 
             var mode = layoutMode != null ? layoutMode.Mode : GP_LayoutMode.Compact;
             var selfId = NativePlayer.Id;
+            var columns = NativeLeaderboard.VisibleFields(_result.fields, _displayFields);
 
             if (subtitleLabel != null)
             {
                 subtitleLabel.text = _result.player != null && _result.player.position > 0
                     ? GP_OverlayStrings.Position + ": " + _result.player.position
                     : "";
-                subtitleLabel.color = Skin.textMuted;
+                GP_OverlayTone.Paint(subtitleLabel, Skin, GP_OverlayColorRole.TextMuted);
                 subtitleLabel.gameObject.SetActive(!string.IsNullOrEmpty(subtitleLabel.text));
+            }
+
+            EnsureHeader();
+            if (headerRow != null)
+            {
+                headerRow.gameObject.SetActive(true);
+                headerRow.BindHeader(columns);
             }
 
             if (_result.players.Count == 0)
@@ -89,11 +104,9 @@ namespace GamePush.Overlays.Views
                 if (component == null)
                     return;
                 var entry = _result.players[index];
-                component.Bind(entry, _result.fields, index, entry.id == selfId, mode);
+                component.Bind(entry, columns, index, entry.id == selfId, mode);
             }, Skin.leaderboardRow);
 
-            // Keep the player visible even after scrolling away from their position,
-            // unless the merged list already carries them and the pin would read as a duplicate.
             var pinned = _result.player;
             var alreadyInList = pinned != null && NativeLeaderboard.Contains(_result.players, pinned.id);
             if (selfRowHolder == null || selfRow == null || pinned == null || alreadyInList)
@@ -103,7 +116,25 @@ namespace GamePush.Overlays.Views
                 return;
             }
             selfRowHolder.SetActive(true);
-            selfRow.Bind(pinned, _result.fields, 0, true, mode);
+            selfRow.Bind(pinned, columns, 0, true, mode);
+        }
+
+        void EnsureHeader()
+        {
+            if (headerRow != null || Skin == null || Skin.leaderboardRow == null)
+                return;
+            var parent = list != null ? list.transform.parent : transform;
+            if (parent == null)
+                return;
+            var instance = Instantiate(Skin.leaderboardRow, parent);
+            instance.name = "LeaderboardHeader";
+            if (list != null)
+                instance.transform.SetSiblingIndex(list.transform.GetSiblingIndex());
+            var layout = instance.GetComponent<LayoutElement>() ?? instance.AddComponent<LayoutElement>();
+            layout.minHeight = 48f;
+            layout.preferredHeight = 48f;
+            layout.flexibleHeight = 0f;
+            headerRow = instance.GetComponent<GP_LeaderboardRow>();
         }
     }
 }

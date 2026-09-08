@@ -43,9 +43,11 @@ namespace GamePush.Overlays.Views
                     : data.cancelLabel;
 
             if (confirmBackground != null)
-                confirmBackground.color = data.invertButtonColors ? skin.row : skin.accent;
+                GP_OverlayTone.Paint(confirmBackground, skin,
+                    data.invertButtonColors ? GP_OverlayColorRole.Button : GP_OverlayColorRole.Accent);
             if (cancelBackground != null)
-                cancelBackground.color = data.invertButtonColors ? skin.accent : skin.row;
+                GP_OverlayTone.Paint(cancelBackground, skin,
+                    data.invertButtonColors ? GP_OverlayColorRole.Accent : GP_OverlayColorRole.Button);
 
             if (cancelButton != null)
                 cancelButton.gameObject.SetActive(!data.hideCancelButton);

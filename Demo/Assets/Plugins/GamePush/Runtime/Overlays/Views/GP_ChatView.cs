@@ -32,6 +32,13 @@ namespace GamePush.Overlays.Views
 
         public GP_OverlayList memberList;
         public Button membersToggle;
+        public GameObject compactTabs;
+        public Button messagesTab;
+        public Button membersTab;
+        public TMP_Text membersTitle;
+
+        protected override Transform StatusHost =>
+            messagesPanel != null ? messagesPanel.transform : null;
 
         readonly List<NativeChatMessage> _messages = new List<NativeChatMessage>();
         readonly Dictionary<string, int> _index = new Dictionary<string, int>();
@@ -77,9 +84,23 @@ namespace GamePush.Overlays.Views
             {
                 membersToggle.onClick.RemoveAllListeners();
                 membersToggle.onClick.AddListener(ToggleMembers);
-                // Personal chats and feeds have no member roster.
-                membersToggle.gameObject.SetActive(_args.scope == NativeChatScope.Channel);
+                membersToggle.gameObject.SetActive(false);
             }
+
+            if (messagesTab != null)
+            {
+                messagesTab.onClick.RemoveAllListeners();
+                messagesTab.onClick.AddListener(() => SetMembersVisible(false));
+            }
+
+            if (membersTab != null)
+            {
+                membersTab.onClick.RemoveAllListeners();
+                membersTab.onClick.AddListener(() => SetMembersVisible(true));
+            }
+
+            if (membersTitle != null)
+                membersTitle.text = GP_OverlayStrings.Members;
 
             if (layoutMode != null)
                 layoutMode.ModeChanged += OnModeChanged;
@@ -132,9 +153,11 @@ namespace GamePush.Overlays.Views
 
         void OnModeChanged(GP_LayoutMode mode) => ApplyMembersVisibility();
 
-        void ToggleMembers()
+        void ToggleMembers() => SetMembersVisible(!_membersVisible);
+
+        void SetMembersVisible(bool visible)
         {
-            _membersVisible = !_membersVisible;
+            _membersVisible = visible;
             ApplyMembersVisibility();
         }
 
@@ -144,14 +167,36 @@ namespace GamePush.Overlays.Views
                 return;
             var wide = layoutMode != null && layoutMode.Mode == GP_LayoutMode.Wide;
             var channel = _args.scope == NativeChatScope.Channel;
+            var showTabs = channel && !wide;
+            if (compactTabs != null)
+                compactTabs.SetActive(showTabs);
             if (membersToggle != null)
-                membersToggle.gameObject.SetActive(channel && !wide);
+                membersToggle.gameObject.SetActive(showTabs && compactTabs == null);
+            StyleTab(messagesTab, !_membersVisible);
+            StyleTab(membersTab, _membersVisible);
             var showMembers = channel && (wide || _membersVisible);
             membersPanel.SetActive(showMembers);
             if (messagesPanel != null)
                 messagesPanel.SetActive(wide || !_membersVisible || !channel);
             if (composer != null)
                 composer.gameObject.SetActive(wide || !_membersVisible || !channel);
+        }
+
+        static void StyleTab(Button tab, bool selected)
+        {
+            if (tab == null)
+                return;
+            var chip = tab.GetComponent<GP_OverlayChip>();
+            if (chip != null)
+            {
+                chip.Bind(tab.name == "MembersTab" ? GP_OverlayStrings.Members : GP_OverlayStrings.Messages,
+                    null, selected);
+                return;
+            }
+
+            var label = tab.GetComponentInChildren<TMP_Text>();
+            if (label != null)
+                label.color = selected ? GP_OverlaySkin.Instance.accent : GP_OverlaySkin.Instance.textMuted;
         }
 
         void LoadPage(int offset, bool initial)

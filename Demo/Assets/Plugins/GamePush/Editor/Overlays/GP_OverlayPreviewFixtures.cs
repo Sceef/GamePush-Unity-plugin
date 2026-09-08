@@ -1,6 +1,8 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using GamePush;
+using GamePush.Native;
 using GamePush.Overlays;
 using GamePush.Overlays.Views;
 using GamePush.Overlays.Widgets;
@@ -34,7 +36,7 @@ namespace GamePushEditor.Overlays
             Set(view.titleLabel, Title(kind, ru));
             if (state != GP_OverlayPreviewState.Content)
             {
-                Set(view.statusLabel, state == GP_OverlayPreviewState.Loading ? (ru ? "Загрузка…" : "Loading…")
+                Set(view.statusLabel, state == GP_OverlayPreviewState.Loading ? (ru ? "Загрузка..." : "Loading...")
                     : state == GP_OverlayPreviewState.Empty ? (ru ? "Пока ничего нет" : "Nothing here yet")
                     : (ru ? "Что-то пошло не так" : "Something went wrong"));
                 view.statusLabel.gameObject.SetActive(true);
@@ -53,8 +55,7 @@ namespace GamePushEditor.Overlays
                     PopulateAchievements(root.GetComponent<GP_AchievementsView>(), skin, ru);
                     break;
                 case GP_OverlayKind.Leaderboard:
-                    PopulateList(root.GetComponent<GP_LeaderboardView>()?.list, skin.leaderboardRow, 8,
-                        PopulateLeaderboardRow);
+                    PopulateLeaderboard(root.GetComponent<GP_LeaderboardView>(), skin);
                     break;
                 case GP_OverlayKind.Chat:
                     PopulateChat(root.GetComponent<GP_ChatView>(), skin, ru);
@@ -103,30 +104,49 @@ namespace GamePushEditor.Overlays
         {
             if (view == null)
                 return;
-            Set(view.counterLabel, "3 / 8");
+            Set(view.counterLabel, (ru ? "Разблокировано: " : "Unlocked: ") + "<color=#" + skin.AccentHex +
+                ">3</color> / 8");
+            if (view.counterLabel != null)
+                view.counterLabel.richText = true;
             var labels = ru ? new[] { "Все", "Прогресс", "Испытания" }
                 : new[] { "All", "Progress", "Challenges" };
-            PopulateGroups(view.groupRail, view.groupButtonTemplate, labels);
-            PopulateGroups(view.compactGroupRail, view.compactGroupButtonTemplate, labels);
+            var counts = new[] { "3 / 8", "2 / 4", "1 / 4" };
+            PopulateGroups(view.groupRail, view.groupButtonTemplate, labels, counts);
+            PopulateGroups(view.compactGroupRail, view.compactGroupButtonTemplate, labels, counts);
             PopulateList(view.list, skin.achievementRow, 6, (row, index) =>
             {
-                SetNamed(row, "Title", index % 2 == 0 ? "Первый шаг" : "Исследователь");
-                SetNamed(row, "Description", "Выполните условие достижения");
-                SetNamed(row, "Progress", index < 3 ? "1 / 1" : "3 / 10");
-                SetNamed(row, "Locked", "🔒");
-                SetNamed(row, "Unlocked", "✓");
+                var achievement = row.GetComponent<GP_AchievementRow>();
+                if (achievement == null)
+                    return;
+                achievement.Bind(new AchievementsFetch
+                {
+                    name = index % 2 == 0 ? "Первый шаг" : "Исследователь",
+                    description = ru ? "Выполните условие достижения" : "Complete the achievement",
+                    icon = "",
+                    maxProgress = index < 3 ? 1 : 10,
+                    lockedVisible = true,
+                    lockedDescriptionVisible = true
+                }, new AchievementsFetchPlayer
+                {
+                    progress = index < 3 ? 1 : 3,
+                    unlocked = index < 3
+                }, index);
             });
         }
 
-        static void PopulateGroups(RectTransform rail, Button template, string[] labels)
+        static void PopulateGroups(RectTransform rail, Button template, string[] labels, string[] counts = null)
         {
             if (rail == null || template == null)
                 return;
-            foreach (var label in labels)
+            for (var i = 0; i < labels.Length; i++)
             {
                 var button = Object.Instantiate(template, rail);
                 button.gameObject.SetActive(true);
-                SetButton(button, label);
+                var chip = button.GetComponent<GP_OverlayChip>();
+                if (chip != null)
+                    chip.Bind(labels[i], counts != null && i < counts.Length ? counts[i] : "", i == 0);
+                else
+                    SetButton(button, labels[i]);
             }
         }
 
@@ -143,10 +163,33 @@ namespace GamePushEditor.Overlays
             PopulateList(view.memberList, skin.memberRow, 6, (row, index) =>
             {
                 SetNamed(row, "Name", index % 2 == 0 ? "Алекс" : "Лира");
-                SetNamed(row, "State", index < 4 ? "●" : "");
+                var member = row.GetComponent<GP_MemberRow>();
+                if (member != null && member.onlineDot != null)
+                {
+                    GP_OverlayTone.Paint(member.onlineDot, skin,
+                        index < 4 ? GP_OverlayColorRole.Accent : GP_OverlayColorRole.TextMuted);
+                    GP_LayoutSquare.Lock(member.onlineDot, 14f);
+                }
             });
+            var wide = view.layoutMode == null || view.layoutMode.Mode == GP_LayoutMode.Wide;
+            if (view.compactTabs != null)
+                view.compactTabs.SetActive(!wide);
+            if (view.messagesPanel != null)
+                view.messagesPanel.SetActive(true);
             if (view.membersPanel != null)
-                view.membersPanel.SetActive(true);
+                view.membersPanel.SetActive(wide);
+            if (view.composer != null)
+                view.composer.gameObject.SetActive(true);
+            if (view.messagesTab != null)
+            {
+                var chip = view.messagesTab.GetComponent<GP_OverlayChip>();
+                chip?.Bind(ru ? "Сообщения" : "Messages", null, true);
+            }
+            if (view.membersTab != null)
+            {
+                var chip = view.membersTab.GetComponent<GP_OverlayChip>();
+                chip?.Bind(ru ? "Участники" : "Members", null, false);
+            }
             SetButton(view.sendButton, ru ? "Отправить" : "Send");
         }
 
@@ -159,6 +202,9 @@ namespace GamePushEditor.Overlays
                 SetNamed(row, "Text", index == 0 ? "Не отображается уровень" : "Обращение игрока");
                 SetNamed(row, "Status", index < 2 ? "Новое" : "В работе");
                 SetNamed(row, "Date", "21.05.2024");
+                var feedback = row.GetComponent<GP_FeedbackRow>();
+                if (feedback != null && feedback.selectedBar != null)
+                    feedback.selectedBar.gameObject.SetActive(index == 0);
             });
             PopulateList(view.threadList, skin.messageRow, 4, (row, index) =>
             {
@@ -169,15 +215,52 @@ namespace GamePushEditor.Overlays
             });
             Set(view.threadTitle, "Не отображается уровень");
             SetButton(view.sendButton, ru ? "Отправить" : "Send");
+            var wide = view.layoutMode == null || view.layoutMode.Mode == GP_LayoutMode.Wide;
+            if (view.listPanel != null)
+                view.listPanel.SetActive(true);
             if (view.threadPanel != null)
-                view.threadPanel.SetActive(true);
+                view.threadPanel.SetActive(wide);
+            if (view.backButton != null)
+                view.backButton.gameObject.SetActive(false);
+        }
+
+        static NativeLeaderboardField[] PreviewLeaderboardFields()
+        {
+            return new[]
+            {
+                new NativeLeaderboardField { key = "score", name = "score" },
+                new NativeLeaderboardField { key = "gold", name = "gold" }
+            };
+        }
+
+        static void PopulateLeaderboard(GP_LeaderboardView view, GP_OverlaySkin skin)
+        {
+            var fields = PreviewLeaderboardFields();
+            if (view != null && view.headerRow != null)
+            {
+                view.headerRow.gameObject.SetActive(true);
+                view.headerRow.BindHeader(fields);
+            }
+            PopulateList(view != null ? view.list : null, skin.leaderboardRow, 8, PopulateLeaderboardRow);
         }
 
         static void PopulateLeaderboardRow(GameObject row, int index)
         {
-            SetNamed(row, "Position", (index + 1).ToString());
-            SetNamed(row, "Name", index == 2 ? "Вы" : "Игрок " + (index + 1));
-            SetNamed(row, "Score", (12500 - index * 620).ToString());
+            var component = row.GetComponent<GP_LeaderboardRow>();
+            if (component == null)
+                return;
+            var fields = PreviewLeaderboardFields();
+            var json = "{\"score\":" + (12500 - index * 620) + ",\"gold\":" + (40 - index) +
+                       ",\"name\":\"Player\",\"avatar\":\"\"}";
+            component.Bind(new NativeLeaderboardEntry
+            {
+                id = 100 + index,
+                position = index + 1,
+                name = index == 2 ? "Вы" : (index == 3 ? "Игрок с очень длинным ником" : "Игрок " + (index + 1)),
+                avatar = "",
+                score = 12500 - index * 620,
+                json = json
+            }, fields, index, index == 2, GP_LayoutMode.Wide);
         }
 
         static void PopulateGameCard(GameObject row, int index)

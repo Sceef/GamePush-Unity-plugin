@@ -175,6 +175,57 @@ namespace GamePush.Native
             return result;
         }
 
+        public static List<NativeLeaderboardField> VisibleFields(IReadOnlyList<NativeLeaderboardField> fields,
+            string displayFields)
+        {
+            var source = new List<NativeLeaderboardField>();
+            if (fields != null)
+            {
+                foreach (var field in fields)
+                {
+                    if (field == null || IsIdentityField(field.key))
+                        continue;
+                    source.Add(field);
+                }
+            }
+
+            var keys = SplitList(displayFields);
+            if (keys.Count > 0)
+            {
+                var ordered = new List<NativeLeaderboardField>();
+                foreach (var key in keys)
+                {
+                    if (IsIdentityField(key))
+                        continue;
+                    NativeLeaderboardField match = null;
+                    foreach (var field in source)
+                    {
+                        if (field.key != key)
+                            continue;
+                        match = field;
+                        break;
+                    }
+                    ordered.Add(match ?? new NativeLeaderboardField { key = key, name = key });
+                }
+                return ordered.Count > 0 ? ordered : ScoreOnly();
+            }
+
+            return source.Count > 0 ? source : ScoreOnly();
+        }
+
+        static bool IsIdentityField(string key)
+        {
+            return key == "id" || key == "name" || key == "avatar" || key == "position";
+        }
+
+        static List<NativeLeaderboardField> ScoreOnly()
+        {
+            return new List<NativeLeaderboardField>
+            {
+                new NativeLeaderboardField { key = "score", name = "score" }
+            };
+        }
+
         static void AddUnique(List<NativeLeaderboardEntry> list, NativeLeaderboardEntry entry)
         {
             if (entry != null && !Contains(list, entry.id))

@@ -33,10 +33,16 @@ namespace GamePush.Overlays.Widgets
         public static string Games => Pick("Игры", "Games");
         public static string Feedbacks => Pick("Обращения", "Feedback");
         public static string Members => Pick("Участники", "Members");
+        public static string Messages => Pick("Сообщения", "Messages");
+        public static string All => Pick("Все", "All");
+        public static string Muted => Pick("Мут", "Mute");
         public static string Confirm => Pick("Подтверждение", "Confirm");
 
         public static string Locked => Pick("Закрыто", "Locked");
         public static string Unlocked => Pick("Получено", "Unlocked");
+        public static string UnlockedProgress(int unlocked, int total, string accentHex) =>
+            Pick("Разблокировано: ", "Unlocked: ") + "<color=#" + accentHex + ">" + unlocked + "</color> / " +
+            total;
         public static string HiddenAchievement => Pick("Секретное достижение", "Hidden achievement");
         public static string Position => Pick("Место", "Rank");
         public static string Score => Pick("Очки", "Score");
